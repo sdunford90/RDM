@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { lookupMarket, fetchAllMarketMetrics, fetchFuturePacing, fetchRevenueEstimate } from '../utils/api';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 import { Line, Bar } from 'react-chartjs-2';
@@ -25,35 +25,65 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeMetric, setActiveMetric] = useState('adr');
+  const [loaded, setLoaded] = useState(false);
 
+  // Use the revenue estimate already fetched during analyze if available
   useEffect(() => {
-    if (!lat || !lng) return;
-    loadDeepDive();
-  }, [lat, lng]);
+    if (marketData?.calculator_estimate && !marketData.calculator_estimate.error) {
+      setEstimate(marketData.calculator_estimate);
+    }
+  }, [marketData]);
 
   const loadDeepDive = async () => {
     setLoading(true);
     setError(null);
     try {
       // Step 1: lookup market
-      const mkt = await lookupMarket({ lat, lng });
-      if (mkt.error) { setError(mkt.error); setLoading(false); return; }
+      let mkt;
+      try {
+        mkt = await lookupMarket({ lat, lng });
+      } catch (e) {
+        console.error('Market lookup failed:', e);
+        setError('Market lookup failed — AirROI may not cover this area');
+        setLoading(false);
+        return;
+      }
+
+      if (mkt.error) {
+        setError(`Market lookup: ${mkt.error}`);
+        setLoading(false);
+        return;
+      }
       setMarket(mkt);
 
-      // Step 2: parallel fetch all metrics, pacing, and revenue estimate
-      const marketObj = mkt.market || { country: mkt.country, region: mkt.region, locality: mkt.locality };
+      // Step 2: build market object — try multiple shapes
+      const marketObj = mkt.market
+        || (mkt.country && { country: mkt.country, region: mkt.region, locality: mkt.locality })
+        || (mkt.market_id && { market_id: mkt.market_id })
+        || null;
+
+      if (!marketObj) {
+        // No structured market — just show what we got from the lookup
+        setLoaded(true);
+        setLoading(false);
+        return;
+      }
+
+      // Step 3: parallel fetch — each wrapped in its own catch
       const [metrics, pace, est] = await Promise.all([
-        fetchAllMarketMetrics({ market: marketObj, num_months: 60 }).catch(() => null),
-        fetchFuturePacing({ market: marketObj }).catch(() => null),
-        fetchRevenueEstimate({ lat, lng }).catch(() => null),
+        fetchAllMarketMetrics({ market: marketObj, num_months: 60 }).catch(e => { console.warn('Metrics/all failed:', e); return null; }),
+        fetchFuturePacing({ market: marketObj }).catch(e => { console.warn('Pacing failed:', e); return null; }),
+        estimate ? Promise.resolve(estimate) : fetchRevenueEstimate({ lat, lng }).catch(e => { console.warn('Calculator failed:', e); return null; }),
       ]);
 
-      setAllMetrics(metrics?.error ? null : metrics);
-      setPacing(pace?.error ? null : pace);
-      setEstimate(est?.error ? null : est);
+      if (metrics && !metrics.error) setAllMetrics(metrics);
+      if (pace && !pace.error) setPacing(pace);
+      if (est && !est.error) setEstimate(est);
+
+      setLoaded(true);
     } catch (e) {
       console.error('Deep dive error:', e);
-      setError('Failed to load deep market data');
+      setError(`Deep dive failed: ${e.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -67,10 +97,10 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
     { id: 'supply', label: 'Supply', color: '#f97316' },
   ];
 
-  // Extract time series from allMetrics
   const getTimeSeries = (key) => {
     if (!allMetrics) return null;
-    const d = allMetrics[key] || allMetrics.metrics?.[key];
+    // Try various shapes the API might return
+    const d = allMetrics[key] || allMetrics.metrics?.[key] || allMetrics[`average_daily_rate`] || null;
     if (!d) return null;
     return d.monthly || d.time_series || d.data || (Array.isArray(d) ? d : null);
   };
@@ -85,32 +115,42 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-bold text-text-primary">Market Deep Dive</h3>
-          {market && <p className="text-xs text-text-tertiary mt-0.5">{market.market_name || market.name || `${market.locality}, ${market.region}`}</p>}
+          {market && (
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {market.market_name || market.name || [market.locality, market.region].filter(Boolean).join(', ') || 'Market data'}
+            </p>
+          )}
         </div>
-        {loading && <Spinner />}
-        {!loading && !allMetrics && !error && (
-          <button onClick={loadDeepDive} className="px-3 py-1.5 text-xs font-semibold bg-gradient-brand text-white rounded-xl shadow-glow-violet hover:opacity-90 transition-all">
-            Load Deep Dive
+        {!loaded && !loading && (
+          <button onClick={loadDeepDive}
+            className="px-4 py-2 text-xs font-semibold bg-gradient-brand text-white rounded-xl shadow-glow-violet hover:opacity-90 transition-all">
+            Load 60-Month Market Data
           </button>
         )}
+        {loading && <Spinner />}
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-600">{error}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+          <p className="text-xs text-red-600 font-medium">{error}</p>
+          <button onClick={loadDeepDive} className="text-xs text-red-500 underline mt-1">Retry</button>
+        </div>
+      )}
 
       {loading && (
-        <div className="flex items-center justify-center py-12 gap-3">
+        <div className="flex items-center justify-center py-10 gap-3">
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-accent border-t-transparent" />
           <span className="text-text-tertiary text-sm">Loading 60-month market data...</span>
         </div>
       )}
 
-      {/* Revenue estimate card */}
-      {estimate && !estimate.error && (
+      {/* Revenue estimate card — shows even before deep dive load (from analyze flow) */}
+      {estimate && (
         <div className="bg-gradient-card border border-emerald-200 rounded-2xl p-4 shadow-soft">
-          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Revenue Estimate (ML Model)</p>
+          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">ML Revenue Estimate</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Stat label="Annual Revenue" value={estimate.projected_annual_revenue ? formatCurrency(estimate.projected_annual_revenue) : '—'} accent="emerald" />
-            <Stat label="Projected ADR" value={estimate.projected_adr ? `$${estimate.projected_adr}/nt` : '—'} accent="violet" />
+            <Stat label="Projected ADR" value={estimate.projected_adr ? `$${Math.round(estimate.projected_adr)}/nt` : '—'} accent="violet" />
             <Stat label="Projected Occ" value={estimate.projected_occupancy ? formatPercent(estimate.projected_occupancy) : '—'} accent="pink" />
             <Stat label="Comps Used" value={estimate.comp_count || '—'} />
           </div>
@@ -129,7 +169,7 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
       )}
 
       {/* Future pacing */}
-      {pacing && !pacing.error && (
+      {pacing && (
         <div className="bg-gradient-card border border-sky-200 rounded-2xl p-4 shadow-soft">
           <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Forward Pacing (Next 90 Days)</p>
           <div className="grid grid-cols-3 gap-3">
@@ -137,7 +177,7 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
             {pacing.yoy_change != null && (
               <Stat label="vs Last Year" value={`${pacing.yoy_change >= 0 ? '+' : ''}${formatPercent(pacing.yoy_change)}`} accent={pacing.yoy_change >= 0 ? 'emerald' : 'red'} />
             )}
-            {pacing.peak_booking_rate != null && <Stat label="Peak Booking Rate" value={formatPercent(pacing.peak_booking_rate)} accent="violet" />}
+            {pacing.peak_booking_rate != null && <Stat label="Peak Booking" value={formatPercent(pacing.peak_booking_rate)} accent="violet" />}
           </div>
         </div>
       )}
@@ -145,7 +185,7 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
       {/* Metric tabs + chart */}
       {allMetrics && (
         <>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {metricTabs.map(tab => (
               <button key={tab.id} onClick={() => setActiveMetric(tab.id)}
                 className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
@@ -163,7 +203,7 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
                 data={{
                   labels: currentSeries.map((d, i) => d.month || d.date || d.label || MONTHS[i % 12]),
                   datasets: [{
-                    data: currentSeries.map(d => d.value || d.rate || d.occupancy || d.revenue || d.count || d.revpar || d),
+                    data: currentSeries.map(d => d.value || d.rate || d.occupancy || d.revenue || d.count || d.revpar || (typeof d === 'number' ? d : 0)),
                     borderColor: currentColor, backgroundColor: `${currentColor}10`, fill: true,
                     tension: 0.3, pointRadius: 2, pointBackgroundColor: currentColor, pointBorderColor: '#fff', pointBorderWidth: 1.5
                   }]
@@ -172,14 +212,20 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
               />
             </div>
           ) : (
-            <div className="bg-surface-1 border border-border rounded-2xl p-8 text-center text-xs text-text-tertiary">
-              No time-series data available for {metricTabs.find(t => t.id === activeMetric)?.label}
+            <div className="bg-surface-1 border border-border rounded-2xl p-6 text-center text-xs text-text-tertiary">
+              No time-series data for {metricTabs.find(t => t.id === activeMetric)?.label}
             </div>
           )}
 
-          {/* Summary stats from allMetrics */}
           <MetricsSummary allMetrics={allMetrics} />
         </>
+      )}
+
+      {/* Show what we loaded even if some parts failed */}
+      {loaded && !allMetrics && !pacing && !estimate && !error && (
+        <div className="bg-surface-1 border border-border rounded-2xl p-6 text-center text-xs text-text-tertiary">
+          Market found but no detailed metrics available for this area
+        </div>
       )}
     </div>
   );
@@ -194,12 +240,11 @@ function MetricsSummary({ allMetrics }) {
 
   const stats = [
     { label: 'TTM ADR', value: extractStat('adr', 'ttm_average') || extractStat('average_daily_rate', 'ttm_average'), fmt: v => `$${Math.round(v)}` },
-    { label: 'TTM Occupancy', value: extractStat('occupancy', 'ttm_average'), fmt: v => formatPercent(v * 100 < 1 ? v * 100 : v) },
+    { label: 'TTM Occupancy', value: extractStat('occupancy', 'ttm_average'), fmt: v => formatPercent(v < 1 ? v * 100 : v) },
     { label: 'TTM RevPAR', value: extractStat('revpar', 'ttm_average'), fmt: v => `$${Math.round(v)}` },
     { label: 'ADR YoY', value: extractStat('adr', 'yoy_change') || extractStat('average_daily_rate', 'yoy_change'), fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}` },
     { label: 'Occ YoY', value: extractStat('occupancy', 'yoy_change'), fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}` },
-    { label: 'Peak ADR Month', value: extractStat('adr', 'peak_month') || extractStat('average_daily_rate', 'peak_month'), fmt: v => v },
-    { label: 'Active Listings', value: extractStat('active_listings', 'current') || extractStat('supply', 'current') || extractStat('active_listings', 'count'), fmt: v => formatNumber(v) },
+    { label: 'Active Listings', value: extractStat('active_listings', 'current') || extractStat('supply', 'current'), fmt: v => formatNumber(v) },
     { label: 'Supply YoY', value: extractStat('active_listings', 'yoy_growth') || extractStat('supply', 'yoy_growth'), fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}` },
   ].filter(s => s.value != null);
 

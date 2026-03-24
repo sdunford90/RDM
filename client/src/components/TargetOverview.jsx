@@ -204,18 +204,38 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
             )}
 
             <MarketCharts metrics={m.metrics} estimate={m.estimate} />
-
-            {/* Listing detail panel */}
-            {selectedListingId && (
-              <ListingDetail listingId={selectedListingId} onClose={() => setSelectedListingId(null)} />
-            )}
-
-            {/* Market Deep Dive */}
-            {mapCenter && <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} />}
           </>
         )}
 
         {m?.error && <Empty>{m.error}. Enter STR data in Underwriting.</Empty>}
+
+        {/* Listing lookup — manual ID entry */}
+        {(p || m) && (
+          <div className="space-y-2">
+            <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider pl-3 border-l-2 border-l-cyan-400">Listing Lookup</h3>
+            <div className="flex gap-2">
+              <input type="text" placeholder="Enter Airbnb listing ID..."
+                className="flex-1 bg-surface-1 border border-border rounded-xl px-3 py-2 text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent focus:shadow-input-focus transition-all"
+                onKeyDown={(e) => { if (e.key === 'Enter' && e.target.value.trim()) { setSelectedListingId(e.target.value.trim()); } }} />
+              <button onClick={() => {
+                const input = document.querySelector('input[placeholder="Enter Airbnb listing ID..."]');
+                if (input?.value.trim()) setSelectedListingId(input.value.trim());
+              }} className="px-4 py-2 text-xs font-semibold bg-accent text-white rounded-xl hover:bg-accent-light transition-all">
+                Look Up
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Listing detail panel */}
+        {selectedListingId && (
+          <ListingDetail listingId={selectedListingId} onClose={() => setSelectedListingId(null)} />
+        )}
+
+        {/* Market Deep Dive — always available when we have coordinates */}
+        {mapCenter && (
+          <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} />
+        )}
 
         <div className="space-y-2 pb-4">
           <h3 className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Notes</h3>

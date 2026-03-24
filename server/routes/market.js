@@ -9,14 +9,20 @@ function headers() {
 }
 
 async function airroiGet(path) {
-  const res = await fetch(`${AIRROI_BASE}${path}`, { headers: headers() });
-  if (!res.ok) throw new Error(`AirROI ${res.status}: ${await res.text()}`);
+  const res = await fetch(`${AIRROI_BASE}${path}`, { headers: headers(), timeout: 15000 });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`AirROI GET ${res.status}: ${errText.slice(0, 200)}`);
+  }
   return res.json();
 }
 
 async function airroiPost(path, body) {
-  const res = await fetch(`${AIRROI_BASE}${path}`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`AirROI ${res.status}: ${await res.text()}`);
+  const res = await fetch(`${AIRROI_BASE}${path}`, { method: 'POST', headers: headers(), body: JSON.stringify(body), timeout: 15000 });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`AirROI POST ${res.status}: ${errText.slice(0, 200)}`);
+  }
   return res.json();
 }
 
