@@ -22,7 +22,7 @@ function InfoTip({ text }) {
   );
 }
 
-export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
+export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
   const [address, setAddress] = useState('');
   const [selectedListingId, setSelectedListingId] = useState(null);
   const [radius, setRadius] = useState(10);
@@ -281,6 +281,17 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
           <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} />
         )}
 
+        {/* Adjacent Parcels */}
+        {adjacentParcels.length > 0 && (
+          <AdjacentParcelsPanel adjacentParcels={adjacentParcels} parcelData={p} />
+        )}
+        {mapCenter && adjacentParcels.length === 0 && p && (
+          <div className="pl-3 border-l-2 border-l-slate-300">
+            <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-1">Adjacent Parcels</h3>
+            <p className="text-xs text-text-tertiary">Searching nearby parcels... (requires Regrid coverage for this county)</p>
+          </div>
+        )}
+
         <div className="space-y-2 pb-4">
           <h3 className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Notes</h3>
           <textarea value={notes} onChange={(e) => onNotesChange(e.target.value)} placeholder="Diligence notes..."
@@ -332,6 +343,118 @@ function D({ label, value, accent, full, tooltip }) {
         {tooltip && <InfoTip text={tooltip} />}
       </p>
       <p className={`text-[13px] font-mono leading-tight break-words ${accent ? 'text-accent font-semibold' : 'text-text-primary'}`}>{String(value)}</p>
+    </div>
+  );
+}
+
+// ── Adjacent Parcels Panel ──────────────────────────────────────────────────
+function ownerSimilarLocal(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+  const strip = s => s.replace(/\b(llc|inc|corp|lp|ltd|trust|co)\b\.?/gi, '').replace(/\s+/g, ' ').trim();
+  const sa = strip(a), sb = strip(b);
+  if (sa === sb || sa.includes(sb) || sb.includes(sa)) return true;
+  const wa = sa.split(/\s+/).filter(w => w.length > 2);
+  const wb = sb.split(/\s+/).filter(w => w.length > 2);
+  if (!wa.length || !wb.length) return false;
+  return wa.filter(w => wb.includes(w)).length / Math.min(wa.length, wb.length) >= 0.7;
+}
+
+function isParcelRelated(parcelData, adj) {
+  if (!parcelData || !adj) return false;
+  const tOwners = [parcelData.ownership?.owner, parcelData.ownership?.owner2].filter(Boolean).map(o => o.toLowerCase().trim());
+  const aOwners = [adj.owner, adj.owner2].filter(Boolean).map(o => o.toLowerCase().trim());
+  if (tOwners.some(to => aOwners.some(ao => ownerSimilarLocal(to, ao)))) return true;
+  const tMail = `${parcelData.ownership?.mailadd || ''} ${parcelData.ownership?.mail_zip || ''}`.toLowerCase().trim();
+  const aMail = `${adj.mailadd || ''} ${adj.mail_zip || ''}`.toLowerCase().trim();
+  return tMail.length > 5 && aMail.length > 5 && tMail === aMail;
+}
+
+function AdjacentParcelsPanel({ adjacentParcels, parcelData }) {
+  const [expanded, setExpanded] = useState(false);
+  const [filter, setFilter] = useState('all');
+
+  const parcelsWithMatch = adjacentParcels.map(p => ({ ...p, isRelated: isParcelRelated(parcelData, p) }));
+  const sameOwnerCount = parcelsWithMatch.filter(p => p.isRelated).length;
+  const filtered = filter === 'same' ? parcelsWithMatch.filter(p => p.isRelated)
+    : filter === 'other' ? parcelsWithMatch.filter(p => !p.isRelated)
+    : parcelsWithMatch;
+
+  return (
+    <div className="pl-3 border-l-2 border-l-indigo-400 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+            Adjacent Parcels
+            <InfoTip text="Nearby parcels fetched from the county records database. Same-owner parcels are highlighted — they indicate the asset may span multiple parcel IDs. Requires Regrid coverage for this county." />
+          </h3>
+          <p className="text-[10px] text-text-tertiary mt-0.5">
+            {adjacentParcels.length} found · {sameOwnerCount > 0 ? <span className="text-violet-600 font-semibold">{sameOwnerCount} same owner</span> : 'no same-owner parcels'}
+          </p>
+        </div>
+        <button onClick={() => setExpanded(!expanded)}
+          className="text-[10px] font-semibold text-accent hover:text-accent-dark transition-colors">
+          {expanded ? 'Collapse' : 'Expand'}
+        </button>
+      </div>
+
+      {/* Same-owner summary strip */}
+      {sameOwnerCount > 0 && (
+        <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2">
+          <p className="text-[11px] font-semibold text-violet-700">
+            {sameOwnerCount} parcel{sameOwnerCount > 1 ? 's' : ''} share ownership with this target
+          </p>
+          <p className="text-[10px] text-violet-500 mt-0.5">
+            Combined acreage may be larger than the single-parcel footprint shown above.
+          </p>
+        </div>
+      )}
+
+      {expanded && (
+        <>
+          <div className="flex gap-1">
+            {['all', 'same', 'other'].map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${filter === f ? 'bg-accent text-white' : 'bg-surface-1 border border-border text-text-tertiary hover:text-text-primary'}`}>
+                {f === 'all' ? `All (${adjacentParcels.length})` : f === 'same' ? `Same Owner (${sameOwnerCount})` : `Different (${adjacentParcels.length - sameOwnerCount})`}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+            {filtered.map((p, i) => (
+              <AdjParcelCard key={p.ll_uuid || p.parcelnumb || i} parcel={p} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdjParcelCard({ parcel: p }) {
+  return (
+    <div className={`rounded-xl border p-3 space-y-1.5 ${p.isRelated ? 'bg-violet-50 border-violet-200' : 'bg-surface-1 border-border'}`}>
+      <div className="flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.isRelated ? 'bg-violet-500' : 'bg-sky-400'}`} />
+        <span className={`text-[10px] font-bold uppercase tracking-wider ${p.isRelated ? 'text-violet-700' : 'text-sky-700'}`}>
+          {p.isRelated ? 'Same Owner as Target' : 'Different Owner'}
+        </span>
+      </div>
+      <p className={`text-xs font-semibold ${p.isRelated ? 'text-violet-700' : 'text-text-primary'}`}>{p.owner || 'Unknown Owner'}</p>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-text-tertiary">
+        {p.parcelnumb && <span><span className="font-medium text-text-secondary">APN</span> {p.parcelnumb}</span>}
+        {p.address && <span className="col-span-2"><span className="font-medium text-text-secondary">Address</span> {p.address}</span>}
+        {p.ll_gisacre && <span><span className="font-medium text-text-secondary">Acres</span> {parseFloat(p.ll_gisacre).toFixed(2)} ac</span>}
+        {p.parval && <span><span className="font-medium text-text-secondary">Assessed</span> {formatCurrency(p.parval)}</span>}
+        {p.zoning && <span><span className="font-medium text-text-secondary">Zone</span> {p.zoning}</span>}
+        {p.usedesc && <span><span className="font-medium text-text-secondary">Use</span> {p.usedesc}</span>}
+        {p.yearbuilt && <span><span className="font-medium text-text-secondary">Built</span> {p.yearbuilt}</span>}
+        {p.saleprice && <span className="col-span-2"><span className="font-medium text-text-secondary">Last Sale</span> {formatCurrency(p.saleprice)}{p.saledate ? ` (${p.saledate})` : ''}</span>}
+      </div>
+      {p.isRelated && (
+        <p className="text-[10px] text-violet-600 font-medium">This parcel shares ownership with the target — the asset may span multiple parcel IDs.</p>
+      )}
     </div>
   );
 }
