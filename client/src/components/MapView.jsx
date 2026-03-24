@@ -3,7 +3,26 @@ import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 
-// Ownership match logic
+// Ownership match logic — fuzzy name matching handles minor spelling variants
+function ownerSimilar(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  // One is a substring of the other (covers "SOUTHERN MARINA" vs "SOUTHERN MARINAS")
+  if (a.includes(b) || b.includes(a)) return true;
+  // Strip common suffixes and compare (LLC, INC, CORP, LP, LTD, TRUST)
+  const strip = s => s.replace(/\b(llc|inc|corp|lp|ltd|trust|co)\b\.?/gi, '').replace(/\s+/g, ' ').trim();
+  const sa = strip(a), sb = strip(b);
+  if (sa === sb) return true;
+  if (sa.includes(sb) || sb.includes(sa)) return true;
+  // If shared meaningful words cover >70% of the shorter string
+  const wordsA = sa.split(/\s+/).filter(w => w.length > 2);
+  const wordsB = sb.split(/\s+/).filter(w => w.length > 2);
+  if (!wordsA.length || !wordsB.length) return false;
+  const shared = wordsA.filter(w => wordsB.includes(w)).length;
+  const shorter = Math.min(wordsA.length, wordsB.length);
+  return shared / shorter >= 0.7;
+}
+
 function checkOwnerMatch(target, adjacent) {
   if (!target || !adjacent) return { nameMatch: false, mailMatch: false, isRelated: false };
 
@@ -12,7 +31,7 @@ function checkOwnerMatch(target, adjacent) {
   const adjOwners = [adjacent.owner, adjacent.owner2, adjacent.owner3, adjacent.owner4]
     .filter(Boolean).map(o => o.toLowerCase().trim());
 
-  const nameMatch = targetOwners.some(o => adjOwners.includes(o));
+  const nameMatch = targetOwners.some(to => adjOwners.some(ao => ownerSimilar(to, ao)));
 
   const targetMail = `${target.ownership?.mailadd || ''} ${target.ownership?.mail_zip || ''}`.toLowerCase().trim();
   const adjMail = `${adjacent.mailadd || ''} ${adjacent.mail_zip || ''}`.toLowerCase().trim();

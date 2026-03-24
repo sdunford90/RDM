@@ -108,13 +108,36 @@ router.post('/summary', async (req, res) => {
   }
 });
 
-// ─── NEW: POST /api/market/metrics/all — full 60-month historical dataset ───
+// ─── NEW: POST /api/market/metrics/all — full historical dataset, normalized ───
 router.post('/metrics/all', async (req, res) => {
   try {
     const { market, filter, num_months = 60, currency = 'usd' } = req.body;
     if (!market) return res.status(400).json({ error: 'Provide market object' });
     const data = await airroiPost('/markets/metrics/all', { market, filter, num_months, currency });
-    res.json(data);
+    const results = data.results || [];
+
+    // Normalize into per-metric time series the frontend expects
+    const toSeries = (key, transform) => results
+      .filter(r => r[key] != null)
+      .map(r => ({ month: r.date?.slice(0, 7) || r.date, value: transform ? transform(r[key]) : (r[key]?.avg ?? r[key]) }));
+
+    const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+
+    const adrSeries = toSeries('average_daily_rate');
+    const occSeries = toSeries('occupancy', v => Math.round((v?.avg ?? v) * 1000) / 10);
+    const revparSeries = toSeries('revpar');
+    const revenueSeries = toSeries('revenue');
+    const supplySeries = results.map(r => ({ month: r.date?.slice(0, 7), value: r.active_listings_count })).filter(r => r.value != null);
+
+    const ttm = (series, n = 12) => { const s = series.slice(-n).map(r => r.value).filter(v => v != null); return avg(s); };
+
+    res.json({
+      adr: { monthly: adrSeries, ttm_average: ttm(adrSeries), yoy_change: null },
+      occupancy: { monthly: occSeries, ttm_average: ttm(occSeries), yoy_change: null },
+      revpar: { monthly: revparSeries, ttm_average: ttm(revparSeries), yoy_change: null },
+      revenue: { monthly: revenueSeries, ttm_average: ttm(revenueSeries), yoy_change: null },
+      supply: { monthly: supplySeries, current: supplySeries[supplySeries.length - 1]?.value || null, yoy_growth: null }
+    });
   } catch (err) {
     console.error('Market metrics/all error:', err);
     res.json({ error: 'Failed to fetch market metrics' });
@@ -152,7 +175,18 @@ router.post('/metrics/future-pacing', async (req, res) => {
     const { market, filter, currency = 'usd' } = req.body;
     if (!market) return res.status(400).json({ error: 'Provide market object' });
     const data = await airroiPost('/markets/metrics/future/pacing', { market, filter, currency });
-    res.json(data);
+    const results = data.results || [];
+
+    if (results.length === 0) return res.json({ error: 'No pacing data available' });
+
+    const avg = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const fillRates = results.map(r => r.fill_rate).filter(v => v != null);
+    const pace_occupancy = avg(fillRates) != null ? Math.round(avg(fillRates) * 1000) / 10 : null;
+    const peak_booking_rate = fillRates.length ? Math.round(Math.max(...fillRates) * 1000) / 10 : null;
+    const avgBooked = avg(results.map(r => r.booked_rate_avg).filter(v => v != null));
+    const avgAvail = avg(results.map(r => r.available_rate_avg).filter(v => v != null));
+
+    res.json({ pace_occupancy, peak_booking_rate, yoy_change: null, avg_booked_rate: avgBooked ? Math.round(avgBooked) : null, avg_available_rate: avgAvail ? Math.round(avgAvail) : null, days: results.length });
   } catch (err) {
     console.error('Future pacing error:', err);
     res.json({ error: 'Failed to fetch pacing data' });
@@ -166,7 +200,15 @@ router.post('/calculator', async (req, res) => {
     if (!lat || !lng) return res.status(400).json({ error: 'Provide lat and lng' });
     const params = new URLSearchParams({ lat, lng, currency, bedrooms, baths, guests }).toString();
     const data = await airroiGet(`/calculator/estimate?${params}`);
-    res.json(data);
+    // Normalize to field names the frontend expects
+    res.json({
+      projected_annual_revenue: data.revenue ?? null,
+      projected_adr: data.average_daily_rate ?? null,
+      projected_occupancy: data.occupancy != null ? Math.round(data.occupancy * 1000) / 10 : null,
+      comp_count: data.percentiles?.revenue ? Object.keys(data.percentiles).length : null,
+      percentiles: data.percentiles || null,
+      raw: data
+    });
   } catch (err) {
     console.error('Calculator error:', err);
     res.json({ error: 'Revenue estimate failed' });
