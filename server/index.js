@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-const { setupAuth, isAuthenticated } = require('./auth');
+const { setupAuth, isAuthenticated, seedMasterAdmin } = require('./auth');
 const parcelRoutes = require('./routes/parcel');
 const marketRoutes = require('./routes/market');
 const listingRoutes = require('./routes/listings');
@@ -17,7 +17,9 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 // Auth MUST be set up before all other routes
-setupAuth(app).then(() => {
+setupAuth(app).then(async () => {
+  // Seed master admin from env var (idempotent — safe every boot)
+  await seedMasterAdmin().catch(err => console.warn('[auth] seedMasterAdmin failed:', err));
   // Protected API routes
   app.use('/api/parcel', isAuthenticated, parcelRoutes);
   app.use('/api/market', isAuthenticated, marketRoutes);

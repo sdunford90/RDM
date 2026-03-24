@@ -191,4 +191,27 @@ function isAdmin(req, res, next) {
   next();
 }
 
-module.exports = { setupAuth, isAuthenticated, isAdmin };
+// Run at startup: ensure MASTER_ADMIN_EMAIL is always allowed + admin.
+// Idempotent — safe to call every boot.
+async function seedMasterAdmin() {
+  const email = (process.env.MASTER_ADMIN_EMAIL || '').toLowerCase().trim();
+  if (!email) return;
+
+  // Ensure the email is in the allowlist
+  await prisma.allowedEmail.upsert({
+    where: { email },
+    update: {},
+    create: { email, addedBy: 'system (master admin seed)' },
+  });
+
+  // If the user has already signed in, promote them to admin
+  const user = await prisma.user.findFirst({ where: { email } });
+  if (user && !user.isAdmin) {
+    await prisma.user.update({ where: { id: user.id }, data: { isAdmin: true } });
+    console.log(`[auth] Promoted ${email} to admin.`);
+  } else if (!user) {
+    console.log(`[auth] Master admin email ${email} is pre-allowed. They will become admin on first sign-in.`);
+  }
+}
+
+module.exports = { setupAuth, isAuthenticated, isAdmin, seedMasterAdmin };
