@@ -100,25 +100,24 @@ export default function App() {
         setMapCenter({ lat, lng });
       }
 
-      // Pre-fill STR defaults from market data
-      if (market && !market.error && underwriting.strUnits.length === 0) {
-        setUnderwriting(prev => ({
-          ...prev,
-          strUnits: prev.strUnits.length === 0 ? prev.strUnits : prev.strUnits.map(u => ({
-            ...u,
-            adr: market.avg_daily_rate || u.adr,
-            occupancy: market.avg_occupancy || u.occupancy
-          }))
-        }));
-      }
+      // Pre-fill underwriting from Regrid data
+      setUnderwriting(prev => {
+        const next = { ...prev, expenses: { ...prev.expenses } };
+        // Pre-fill property taxes from Regrid taxamt
+        if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) {
+          next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0;
+        }
+        return next;
+      });
 
       // Set current asset context
+      const locationName = parcel?.identity?.location_name;
       setCurrentAsset(prev => ({
         ...prev,
         address,
         lat,
         lng,
-        label: prev?.label || address?.split(',')[0] || 'New Target'
+        label: prev?.label || locationName || address?.split(',')[0] || 'New Target'
       }));
     } catch (e) {
       console.error('Analysis failed:', e);
@@ -230,6 +229,7 @@ export default function App() {
             underwriting={underwriting}
             setUnderwriting={setUnderwriting}
             marketData={marketData}
+            parcelData={parcelData}
           />
         )}
         {activeTab === 'map' && (

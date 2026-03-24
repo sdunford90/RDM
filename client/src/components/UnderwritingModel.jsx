@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { formatCurrency, formatPercent, formatMultiple } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatMultiple, formatNumber } from '../utils/formatters';
 
-export default function UnderwritingModel({ underwriting, setUnderwriting, marketData }) {
+export default function UnderwritingModel({ underwriting, setUnderwriting, marketData, parcelData }) {
   const u = underwriting;
 
   const update = (path, value) => {
@@ -48,13 +48,16 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
   };
 
   const addSTR = () => {
+    // Pre-fill from AirROI property estimate first, then market summary, then flat values
+    const estADR = marketData?.estimate?.projected_adr || marketData?.summary?.avg_daily_rate || marketData?.avg_daily_rate || 0;
+    const estOcc = marketData?.estimate?.projected_occupancy || marketData?.summary?.avg_occupancy || marketData?.avg_occupancy || 65;
     setUnderwriting(prev => ({
       ...prev,
       strUnits: [...prev.strUnits, {
         label: '',
         count: 0,
-        adr: marketData?.avg_daily_rate || 0,
-        occupancy: marketData?.avg_occupancy || 65,
+        adr: estADR,
+        occupancy: estOcc,
         availableNights: 365
       }]
     }));
@@ -194,6 +197,45 @@ VALUATION ANALYSIS
   return (
     <div className="h-[calc(100vh-100px)] overflow-y-auto">
       <div className="max-w-5xl mx-auto p-6 space-y-8">
+
+        {/* Reference Data Bar */}
+        {(parcelData || marketData) && !parcelData?.error && (
+          <div className="bg-navy-800 border border-navy-700 rounded-lg p-4">
+            <h3 className="text-[10px] text-slate-secondary uppercase tracking-wider mb-3">Property Reference Data</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {parcelData?.physical?.numunits && (
+                <RefItem label="Units (Assessor)" value={parcelData.physical.numunits} />
+              )}
+              {parcelData?.physical?.area_building && (
+                <RefItem label="Building Sq Ft" value={formatNumber(parcelData.physical.area_building)} />
+              )}
+              {parcelData?.physical?.ll_gisacre && (
+                <RefItem label="Acreage" value={`${parcelData.physical.ll_gisacre} ac`} />
+              )}
+              {parcelData?.physical?.yearbuilt && (
+                <RefItem label="Year Built" value={parcelData.physical.yearbuilt} />
+              )}
+              {parcelData?.physical?.year_built_effective_date && (
+                <RefItem label="Effective Year" value={parcelData.physical.year_built_effective_date} />
+              )}
+              {parcelData?.tax?.taxamt && (
+                <RefItem label="Annual Tax Bill" value={formatCurrency(parcelData.tax.taxamt)} highlight />
+              )}
+              {(marketData?.estimate?.projected_adr || marketData?.summary?.avg_daily_rate || marketData?.avg_daily_rate) && (
+                <RefItem label="Est. ADR (AirROI)" value={`$${marketData.estimate?.projected_adr || marketData.summary?.avg_daily_rate || marketData.avg_daily_rate}/night`} highlight />
+              )}
+              {(marketData?.estimate?.projected_occupancy || marketData?.summary?.avg_occupancy || marketData?.avg_occupancy) && (
+                <RefItem label="Est. Occ (AirROI)" value={formatPercent(marketData.estimate?.projected_occupancy || marketData.summary?.avg_occupancy || marketData.avg_occupancy)} highlight />
+              )}
+              {marketData?.estimate?.projected_annual_revenue && (
+                <RefItem label="Est. Annual Rev" value={formatCurrency(marketData.estimate.projected_annual_revenue)} highlight />
+              )}
+              {(marketData?.summary?.active_listings || marketData?.active_listings) && (
+                <RefItem label="Active Listings" value={formatNumber(marketData.summary?.active_listings || marketData.active_listings)} />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Section A: Marina Slip Revenue */}
         <Section title="Marina Slip Revenue">
@@ -485,6 +527,15 @@ function MiniCard({ label, value }) {
     <div className="bg-navy-800 border border-navy-700 rounded-lg p-3">
       <p className="text-[10px] text-slate-secondary uppercase tracking-wider mb-0.5">{label}</p>
       <p className="text-sm font-mono text-slate-text">{value}</p>
+    </div>
+  );
+}
+
+function RefItem({ label, value, highlight }) {
+  return (
+    <div>
+      <p className="text-[10px] text-slate-secondary uppercase tracking-wider">{label}</p>
+      <p className={`text-sm font-mono ${highlight ? 'text-gold' : 'text-slate-text'}`}>{value}</p>
     </div>
   );
 }
