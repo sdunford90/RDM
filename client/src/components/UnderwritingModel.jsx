@@ -62,7 +62,7 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
 
   return (
     <div className="h-[calc(100vh-108px)] overflow-y-auto bg-surface-1">
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5 md:space-y-6">
 
         {/* Reference bar */}
         {(parcelData || marketData) && !parcelData?.error && (
@@ -83,7 +83,7 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
         <Section title="Marina Slip Revenue" color="violet">
           {u.slipCategories.map((slip, i) => (
             <Card key={i} onRemove={() => removeSlip(i)} label={`Slip Category ${i+1}`}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <Inp label="Type" value={slip.label} onChange={v => updateSlip(i,'label',v)} ph="Wet Slip 30ft" />
                 <Num label="Size (ft)" value={slip.size} onChange={v => updateSlip(i,'size',Number(v))} />
                 <Num label="Count" value={slip.count} onChange={v => updateSlip(i,'count',Number(v))} />
@@ -107,7 +107,7 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
         <Section title="Short-Term Rental / Lodging" color="pink">
           {u.strUnits.map((unit, i) => (
             <Card key={i} onRemove={() => removeSTR(i)} label={`Unit Type ${i+1}`}>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Inp label="Type" value={unit.label} onChange={v => updateSTR(i,'label',v)} ph="Lakefront Cabin" />
                 <Num label="Count" value={unit.count} onChange={v => updateSTR(i,'count',Number(v))} />
                 <Cur label="ADR ($/night)" value={unit.adr} onChange={v => updateSTR(i,'adr',Number(v))} />
@@ -138,8 +138,8 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
 
         {/* Expenses */}
         <Section title="Operating Expenses" color="orange">
-          <div className="bg-white border border-border rounded-2xl p-5 space-y-4 shadow-soft">
-            <div className="flex items-center justify-between">
+          <div className="bg-white border border-border rounded-2xl p-4 md:p-5 space-y-4 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <Toggle value={u.expenses.mgmtFeeEnabled} onChange={v => update('expenses.mgmtFeeEnabled',v)} />
                 <span className="text-sm font-medium text-text-primary">RDM Management Fee</span>
@@ -152,7 +152,7 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <Cur label="Property Taxes" value={u.expenses.propertyTaxes} onChange={v => update('expenses.propertyTaxes',Number(v))} />
               <Cur label="Insurance" value={u.expenses.insurance} onChange={v => update('expenses.insurance',Number(v))} />
               <Cur label="Utilities" value={u.expenses.utilities} onChange={v => update('expenses.utilities',Number(v))} />

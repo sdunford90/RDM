@@ -42,13 +42,13 @@ export default function SavedTargets({ assets, onLoad, onRefresh }) {
                     <p className="text-xs text-text-tertiary mt-0.5 truncate">{asset.address}</p>
                     <p className="text-[10px] text-text-tertiary mt-1 font-medium">{new Date(asset.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                   </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-all">
                     <button onClick={(e) => { e.stopPropagation(); onLoad(asset.id); }}
-                      className="px-3.5 py-1.5 text-[11px] font-semibold bg-gradient-brand text-white rounded-lg shadow-glow-violet hover:opacity-90 transition-all">
+                      className="px-3.5 py-2 text-[11px] font-semibold bg-gradient-brand text-white rounded-lg shadow-glow-violet hover:opacity-90 transition-all">
                       Load
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(asset.id); }} disabled={deleting === asset.id}
-                      className="px-3 py-1.5 text-[11px] font-medium text-text-tertiary hover:text-negative rounded-lg hover:bg-red-50 transition-all disabled:opacity-50">
+                      className="px-3 py-2 text-[11px] font-medium text-text-tertiary hover:text-negative rounded-lg hover:bg-red-50 transition-all disabled:opacity-50">
                       {deleting === asset.id ? '...' : 'Delete'}
                     </button>
                   </div>

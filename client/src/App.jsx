@@ -178,18 +178,18 @@ export default function App() {
         user={user} />
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-6 py-2 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 border-b border-violet-100">
+      <div className="flex items-center gap-1 px-3 md:px-6 py-2 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 border-b border-violet-100 overflow-x-auto flex-shrink-0 no-scrollbar">
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-xl transition-all ${
+            className={`flex items-center gap-1.5 px-3 md:px-4 py-2 text-[12px] md:text-[13px] font-medium rounded-xl transition-all flex-shrink-0 ${
               activeTab === tab.id
                 ? 'bg-gradient-brand text-white shadow-glow-violet'
                 : 'text-violet-400 hover:text-violet-600 hover:bg-white/60'
             }`}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
             </svg>
-            {tab.label}
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
