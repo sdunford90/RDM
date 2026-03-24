@@ -25,10 +25,13 @@ app.get('/api/mapbox-token', (req, res) => {
 
 // Serve static frontend in production
 const distPath = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(distPath));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
+const fs = require('fs');
+if (fs.existsSync(path.join(distPath, 'index.html'))) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`RDM Deal Tool server running on port ${PORT}`);
