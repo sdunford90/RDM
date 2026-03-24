@@ -8,6 +8,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
   const [address, setAddress] = useState('');
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
+  const geocoderRef = useRef(null);
   const geocoderContainer = useRef(null);
 
   // Initialize mini map
@@ -21,6 +22,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
     }
 
     let map;
+    let geocoder;
     try {
       mapboxgl.accessToken = mapboxToken;
       map = new mapboxgl.Map({
@@ -32,7 +34,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
 
       map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-      const geocoder = new MapboxGeocoder({
+      geocoder = new MapboxGeocoder({
         accessToken: mapboxToken,
         mapboxgl: mapboxgl,
         placeholder: 'Search address...',
@@ -41,6 +43,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
       });
 
       if (geocoderContainer.current) {
+        geocoderContainer.current.innerHTML = '';
         geocoderContainer.current.appendChild(geocoder.onAdd(map));
       }
 
@@ -51,6 +54,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
       });
 
       mapRef.current = map;
+      geocoderRef.current = geocoder;
     } catch (err) {
       console.warn('Failed to initialize map:', err);
       if (map) { try { map.remove(); } catch (_) {} }
@@ -58,6 +62,9 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
     }
 
     return () => {
+      try { geocoderRef.current?.onRemove(); } catch (_) {}
+      geocoderRef.current = null;
+      if (geocoderContainer.current) geocoderContainer.current.innerHTML = '';
       if (mapRef.current) {
         try { mapRef.current.remove(); } catch (_) {}
         mapRef.current = null;
