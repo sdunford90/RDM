@@ -7,9 +7,14 @@
     "dev:server": "cd server && node index.js",
     "dev:client": "cd client && npx vite",
     "build": "cd client && npx vite build",
-    "start": "cd server && node index.js"
+    "start": "cd server && node index.js",
+    "postinstall": "prisma generate"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
   }
 }
