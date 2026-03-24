@@ -4,7 +4,7 @@ import TargetOverview from './components/TargetOverview';
 import UnderwritingModel from './components/UnderwritingModel';
 import MapView from './components/MapView';
 import SavedTargets from './components/SavedTargets';
-import { fetchMapboxToken, fetchParcelData, fetchMarketData, fetchRevenueEstimate, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
+import { fetchMapboxToken, fetchParcelData, fetchAdjacentParcels, fetchMarketData, fetchRevenueEstimate, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -29,6 +29,7 @@ export default function App() {
   const [underwriting, setUnderwriting] = useState(defaultUnderwriting);
   const [mapCenter, setMapCenter] = useState(null);
   const [parcelGeometry, setParcelGeometry] = useState(null);
+  const [adjacentParcels, setAdjacentParcels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [notes, setNotes] = useState('');
@@ -46,7 +47,7 @@ export default function App() {
   }, [underwriting, notes, currentAsset?.id]);
 
   const handleAnalyze = async (address, coords) => {
-    setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null);
+    setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null); setAdjacentParcels([]);
     try {
       const { lat, lng } = coords || {};
       const [parcel, market, revEstimate] = await Promise.all([
@@ -70,7 +71,13 @@ export default function App() {
       enrichedMarket.calculator_estimate = revEstimate;
       setParcelData(parcel); setMarketData(enrichedMarket);
       if (parcel.geometry) setParcelGeometry(parcel.geometry);
-      if (lat && lng) setMapCenter({ lat, lng });
+      if (lat && lng) {
+        setMapCenter({ lat, lng });
+        // Fetch adjacent parcels in background (non-blocking)
+        fetchAdjacentParcels({ lat, lng, radius: 400, limit: 50 })
+          .then(data => { if (data.parcels) setAdjacentParcels(data.parcels); })
+          .catch(e => console.warn('Adjacent parcels failed:', e));
+      }
       setUnderwriting(prev => { const next = { ...prev, expenses: { ...prev.expenses } }; if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0; return next; });
       setCurrentAsset(prev => ({ ...prev, address, lat, lng, label: prev?.label || parcel?.identity?.location_name || address?.split(',')[0] || 'New Target' }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -98,7 +105,7 @@ export default function App() {
 
   const handleNewTarget = () => {
     setCurrentAsset(null); setParcelData(null); setMarketData(null);
-    setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null); setNotes(''); setActiveTab('overview');
+    setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null); setAdjacentParcels([]); setNotes(''); setActiveTab('overview');
   };
 
   return (
@@ -127,7 +134,7 @@ export default function App() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
         {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
-        {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} />}
+        {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} adjacentParcels={adjacentParcels} />}
         {activeTab === 'saved' && <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />}
       </div>
     </div>

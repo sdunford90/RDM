@@ -228,4 +228,64 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /api/parcel/adjacent — fetch nearby parcels from Regrid point API
+router.post('/adjacent', async (req, res) => {
+  try {
+    const { lat, lng, radius = 300, limit = 50 } = req.body;
+    const token = process.env.REGRID_API_KEY;
+
+    if (!token) return res.status(500).json({ error: 'Regrid API key not configured' });
+    if (!lat || !lng) return res.status(400).json({ error: 'Provide lat and lng' });
+
+    // Regrid point endpoint with radius returns all parcels within radius (meters)
+    const url = `https://app.regrid.com/api/v2/parcels/point?lat=${lat}&lon=${lng}&token=${token}&radius=${radius}&limit=${limit}&return_geometry=true&return_custom=false`;
+    const r = await fetch(url);
+
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      console.error('Regrid adjacent error:', r.status, errText.slice(0, 200));
+      return res.json({ parcels: [], error: 'Failed to fetch adjacent parcels' });
+    }
+
+    const data = await r.json();
+    const features = data.parcels?.features || data.features || [];
+
+    // Extract key fields from each parcel for the frontend
+    const parcels = features.map(f => {
+      const props = f.properties || {};
+      const fields = props.fields || props;
+      return {
+        ll_uuid: get(fields, 'll_uuid'),
+        parcelnumb: get(fields, 'parcelnumb', 'apn'),
+        owner: get(fields, 'owner'),
+        owner2: get(fields, 'owner2'),
+        owner3: get(fields, 'owner3'),
+        owner4: get(fields, 'owner4'),
+        mailadd: get(fields, 'mailadd'),
+        mail_zip: get(fields, 'mail_zip'),
+        ll_gisacre: get(fields, 'll_gisacre'),
+        parval: get(fields, 'parval', 'assdtotval'),
+        landval: get(fields, 'landval'),
+        improvval: get(fields, 'improvval'),
+        taxamt: get(fields, 'taxamt'),
+        usedesc: get(fields, 'usedesc'),
+        zoning: get(fields, 'zoning'),
+        yearbuilt: get(fields, 'yearbuilt'),
+        saleprice: get(fields, 'saleprice'),
+        saledate: get(fields, 'saledate'),
+        fema_flood_zone: get(fields, 'fema_flood_zone'),
+        address: get(fields, 'address'),
+        scity: get(fields, 'scity'),
+        state2: get(fields, 'state2'),
+        geometry: f.geometry || null
+      };
+    });
+
+    res.json({ parcels, total: parcels.length });
+  } catch (err) {
+    console.error('Adjacent parcel error:', err);
+    res.json({ parcels: [], error: 'Failed to fetch adjacent parcels' });
+  }
+});
+
 module.exports = router;

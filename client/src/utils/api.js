@@ -16,6 +16,14 @@ export async function fetchParcelData({ lat, lng, address }) {
   return res.json();
 }
 
+export async function fetchAdjacentParcels({ lat, lng, radius = 300, limit = 50 }) {
+  const res = await fetch(`${API_BASE}/parcel/adjacent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat, lng, radius, limit })
+  });
+  return res.json();
+}
+
 export async function fetchMarketData({ lat, lng, radius_miles = 10 }) {
   const res = await fetch(`${API_BASE}/market`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
