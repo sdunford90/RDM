@@ -20,46 +20,48 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
       return;
     }
 
-    mapboxgl.accessToken = mapboxToken;
     let map;
     try {
+      mapboxgl.accessToken = mapboxToken;
       map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/satellite-streets-v12',
         center: [-96.7, 32.9],
         zoom: 4
       });
+
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      const geocoder = new MapboxGeocoder({
+        accessToken: mapboxToken,
+        mapboxgl: mapboxgl,
+        placeholder: 'Search address...',
+        countries: 'us',
+        types: 'address,poi,place'
+      });
+
+      if (geocoderContainer.current) {
+        geocoderContainer.current.appendChild(geocoder.onAdd(map));
+      }
+
+      geocoder.on('result', (e) => {
+        const { center, place_name } = e.result;
+        setAddress(place_name);
+        onAnalyze(place_name, { lat: center[1], lng: center[0] });
+      });
+
+      mapRef.current = map;
     } catch (err) {
       console.warn('Failed to initialize map:', err);
+      if (map) { try { map.remove(); } catch (_) {} }
       return;
     }
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Add geocoder search box
-    const geocoder = new MapboxGeocoder({
-      accessToken: mapboxToken,
-      mapboxgl: mapboxgl,
-      placeholder: 'Search address...',
-      countries: 'us',
-      types: 'address,poi,place'
-    });
-
-    if (geocoderContainer.current) {
-      geocoderContainer.current.appendChild(geocoder.onAdd(map));
-    }
-
-    geocoder.on('result', (e) => {
-      const { center, place_name } = e.result;
-      setAddress(place_name);
-      onAnalyze(place_name, { lat: center[1], lng: center[0] });
-    });
-
-    mapRef.current = map;
-
     return () => {
-      map.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        try { mapRef.current.remove(); } catch (_) {}
+        mapRef.current = null;
+      }
     };
   }, [mapboxToken]);
 

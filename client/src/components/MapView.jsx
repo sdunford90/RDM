@@ -31,72 +31,75 @@ export default function MapView({ mapboxToken, center, parcelGeometry, parcelDat
         zoom: center ? 16 : 4,
         pitch: center ? 45 : 0
       });
+
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+      const geocoder = new MapboxGeocoder({
+        accessToken: mapboxToken,
+        mapboxgl: mapboxgl,
+        placeholder: 'Search location...',
+        countries: 'us'
+      });
+      map.addControl(geocoder, 'top-left');
+
+      map.on('load', () => {
+        if (parcelGeometry && showParcel) {
+          map.addSource('parcel', {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: parcelGeometry }
+          });
+          map.addLayer({
+            id: 'parcel-fill',
+            type: 'fill',
+            source: 'parcel',
+            paint: { 'fill-color': '#C9A84C', 'fill-opacity': 0.2 }
+          });
+          map.addLayer({
+            id: 'parcel-outline',
+            type: 'line',
+            source: 'parcel',
+            paint: { 'line-color': '#C9A84C', 'line-width': 2 }
+          });
+
+          map.on('click', 'parcel-fill', () => {
+            if (!parcelData) return;
+            new mapboxgl.Popup({ closeButton: true, className: 'parcel-popup' })
+              .setLngLat(center ? [center.lng, center.lat] : [0, 0])
+              .setHTML(`
+                <div style="font-family:Inter,sans-serif;color:#E8EDF5;background:#1A2236;padding:12px;border-radius:8px;min-width:200px">
+                  <strong style="color:#C9A84C">${parcelData.owner || 'Unknown Owner'}</strong><br/>
+                  <span style="font-size:11px;color:#8A9BBE">APN: ${parcelData.apn || 'N/A'}</span><br/>
+                  <span style="font-size:11px;color:#8A9BBE">Acreage: ${parcelData.acreage || 'N/A'}</span><br/>
+                  <span style="font-size:11px;color:#8A9BBE">Zoning: ${parcelData.zoning || 'N/A'}</span>
+                </div>
+              `)
+              .addTo(map);
+          });
+          map.on('mouseenter', 'parcel-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+          map.on('mouseleave', 'parcel-fill', () => { map.getCanvas().style.cursor = ''; });
+        }
+
+        if (center) {
+          new mapboxgl.Marker({ color: '#C9A84C' })
+            .setLngLat([center.lng, center.lat])
+            .addTo(map);
+        }
+      });
+
+      mapRef.current = map;
     } catch (err) {
       console.warn('Failed to initialize map:', err);
+      if (map) { try { map.remove(); } catch (_) {} }
       return;
     }
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-
-    // Search box
-    const geocoder = new MapboxGeocoder({
-      accessToken: mapboxToken,
-      mapboxgl: mapboxgl,
-      placeholder: 'Search location...',
-      countries: 'us'
-    });
-    map.addControl(geocoder, 'top-left');
-
-    map.on('load', () => {
-      // Add parcel boundary
-      if (parcelGeometry && showParcel) {
-        map.addSource('parcel', {
-          type: 'geojson',
-          data: { type: 'Feature', geometry: parcelGeometry }
-        });
-        map.addLayer({
-          id: 'parcel-fill',
-          type: 'fill',
-          source: 'parcel',
-          paint: { 'fill-color': '#C9A84C', 'fill-opacity': 0.2 }
-        });
-        map.addLayer({
-          id: 'parcel-outline',
-          type: 'line',
-          source: 'parcel',
-          paint: { 'line-color': '#C9A84C', 'line-width': 2 }
-        });
-
-        // Click popup
-        map.on('click', 'parcel-fill', () => {
-          if (!parcelData) return;
-          new mapboxgl.Popup({ closeButton: true, className: 'parcel-popup' })
-            .setLngLat(center ? [center.lng, center.lat] : [0, 0])
-            .setHTML(`
-              <div style="font-family:Inter,sans-serif;color:#E8EDF5;background:#1A2236;padding:12px;border-radius:8px;min-width:200px">
-                <strong style="color:#C9A84C">${parcelData.owner || 'Unknown Owner'}</strong><br/>
-                <span style="font-size:11px;color:#8A9BBE">APN: ${parcelData.apn || 'N/A'}</span><br/>
-                <span style="font-size:11px;color:#8A9BBE">Acreage: ${parcelData.acreage || 'N/A'}</span><br/>
-                <span style="font-size:11px;color:#8A9BBE">Zoning: ${parcelData.zoning || 'N/A'}</span>
-              </div>
-            `)
-            .addTo(map);
-        });
-        map.on('mouseenter', 'parcel-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', 'parcel-fill', () => { map.getCanvas().style.cursor = ''; });
+    return () => {
+      if (mapRef.current) {
+        try { mapRef.current.remove(); } catch (_) {}
+        mapRef.current = null;
       }
-
-      // Marker
-      if (center) {
-        new mapboxgl.Marker({ color: '#C9A84C' })
-          .setLngLat([center.lng, center.lat])
-          .addTo(map);
-      }
-    });
-
-    mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
+    };
   }, [mapboxToken, mapStyle, center, parcelGeometry, showParcel]);
 
   const flyToProperty = () => {
