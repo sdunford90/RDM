@@ -16,41 +16,58 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Provide lat and lng' });
     }
 
-    // AirROI market endpoint
-    const url = `https://api.airroi.com/v1/market?lat=${lat}&lng=${lng}&radius=${radius_miles}`;
-
-    const response = await fetch(url, {
+    const response = await fetch('https://api.airroi.com/listings/search/radius', {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'X-API-KEY': apiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({
+        latitude: lat,
+        longitude: lng,
+        radius_miles: radius_miles,
+        pagination: { page_size: 10, offset: 0 }
+      })
     });
 
     if (!response.ok) {
-      // Return a structured fallback so frontend can handle gracefully
-      return res.json({
-        error: 'No STR market data available for this area',
-        avg_daily_rate: null,
-        avg_occupancy: null,
-        avg_monthly_revenue: null,
-        active_listings: null,
-        market_score: null,
-        radius_miles,
-        monthly_data: null
-      });
+      const errText = await response.text();
+      console.error('AirROI error:', response.status, errText);
+      return res.json({ error: 'No STR market data available for this area' });
     }
 
     const data = await response.json();
+    const results = data.results || [];
+
+    if (results.length === 0) {
+      return res.json({ error: 'No STR listings found in this area' });
+    }
+
+    const active_listings = data.pagination?.total_count || results.length;
+
+    // Aggregate performance metrics across all returned listings
+    const metrics = results.map(r => r.performance_metrics || {}).filter(m => m.ttm_avg_rate);
+
+    const avg = (arr, key) => {
+      const vals = arr.map(m => m[key]).filter(v => v != null && v > 0);
+      return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100 : null;
+    };
+
+    const avg_daily_rate = avg(metrics, 'ttm_avg_rate');
+    const avg_occupancy = avg(metrics, 'ttm_occupancy');
+    const avg_monthly_revenue = avg(metrics, 'ttm_revenue') ? Math.round(avg(metrics, 'ttm_revenue') / 12) : null;
+
+    // Build monthly data from aggregated l90d if available
+    let monthly_data = null;
 
     res.json({
-      avg_daily_rate: data.avg_daily_rate || data.adr || null,
-      avg_occupancy: data.avg_occupancy || data.occupancy_rate || null,
-      avg_monthly_revenue: data.avg_monthly_revenue || data.monthly_revenue || null,
-      active_listings: data.active_listings || data.listing_count || null,
-      market_score: data.market_score || null,
+      avg_daily_rate,
+      avg_occupancy,
+      avg_monthly_revenue,
+      active_listings,
+      market_score: null,
       radius_miles,
-      monthly_data: data.monthly_data || data.seasonal_data || null,
-      raw: data
+      monthly_data
     });
   } catch (err) {
     console.error('Market API error:', err);
