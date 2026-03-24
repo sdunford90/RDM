@@ -14,16 +14,9 @@ const TABS = [
 ];
 
 const defaultUnderwriting = {
-  slipCategories: [],
-  strUnits: [],
-  otherRevenue: [],
-  expenses: {
-    mgmtFeeEnabled: true, mgmtFeePct: 6, propertyTaxes: 0, insurance: 0,
-    utilities: 0, maintenanceMode: 'percent', maintenancePct: 5, maintenanceFlat: 0,
-    payroll: 0, marketing: 0, otherOpex: 0
-  },
-  purchasePrice: 0,
-  targetCapRate: 7
+  slipCategories: [], strUnits: [], otherRevenue: [],
+  expenses: { mgmtFeeEnabled: true, mgmtFeePct: 6, propertyTaxes: 0, insurance: 0, utilities: 0, maintenanceMode: 'percent', maintenancePct: 5, maintenanceFlat: 0, payroll: 0, marketing: 0, otherOpex: 0 },
+  purchasePrice: 0, targetCapRate: 7
 };
 
 export default function App() {
@@ -41,14 +34,9 @@ export default function App() {
   const [notes, setNotes] = useState('');
   const autoSaveTimer = useRef(null);
 
-  useEffect(() => {
-    fetchMapboxToken().then(setMapboxToken).catch(console.error);
-    loadSavedAssets();
-  }, []);
+  useEffect(() => { fetchMapboxToken().then(setMapboxToken).catch(console.error); loadSavedAssets(); }, []);
 
-  const loadSavedAssets = async () => {
-    try { setSavedAssets(await listAssets()); } catch (e) { console.error(e); }
-  };
+  const loadSavedAssets = async () => { try { setSavedAssets(await listAssets()); } catch (e) { console.error(e); } };
 
   useEffect(() => {
     if (!currentAsset?.id) return;
@@ -58,79 +46,58 @@ export default function App() {
   }, [underwriting, notes, currentAsset?.id]);
 
   const handleAnalyze = async (address, coords) => {
-    setLoading(true);
-    setParcelData(null); setMarketData(null); setParcelGeometry(null);
+    setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null);
     try {
       const { lat, lng } = coords || {};
-      const [parcel, market] = await Promise.all([
-        fetchParcelData({ lat, lng, address }),
-        fetchMarketData({ lat, lng, radius_miles: 10 })
-      ]);
+      const [parcel, market] = await Promise.all([fetchParcelData({ lat, lng, address }), fetchMarketData({ lat, lng, radius_miles: 10 })]);
       setParcelData(parcel); setMarketData(market);
       if (parcel.geometry) setParcelGeometry(parcel.geometry);
       if (lat && lng) setMapCenter({ lat, lng });
-      setUnderwriting(prev => {
-        const next = { ...prev, expenses: { ...prev.expenses } };
-        if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0;
-        return next;
-      });
-      const locationName = parcel?.identity?.location_name;
-      setCurrentAsset(prev => ({ ...prev, address, lat, lng, label: prev?.label || locationName || address?.split(',')[0] || 'New Target' }));
-    } catch (e) { console.error('Analysis failed:', e); }
-    finally { setLoading(false); }
+      setUnderwriting(prev => { const next = { ...prev, expenses: { ...prev.expenses } }; if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0; return next; });
+      setCurrentAsset(prev => ({ ...prev, address, lat, lng, label: prev?.label || parcel?.identity?.location_name || address?.split(',')[0] || 'New Target' }));
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const handleSave = async (isAutoSave = false) => {
     if (!currentAsset?.address) return;
     try {
       const saved = await saveAssetApi({ ...currentAsset, parcel: parcelData, market: marketData, underwriting, notes });
-      setCurrentAsset(saved);
-      setSaveStatus(isAutoSave ? 'auto' : 'manual');
-      setTimeout(() => setSaveStatus(null), 3000);
-      loadSavedAssets();
+      setCurrentAsset(saved); setSaveStatus(isAutoSave ? 'auto' : 'manual'); setTimeout(() => setSaveStatus(null), 3000); loadSavedAssets();
     } catch (e) { setSaveStatus('error'); setTimeout(() => setSaveStatus(null), 3000); }
   };
 
   const handleLoadAsset = async (id) => {
     setLoading(true);
     try {
-      const asset = await getAsset(id);
-      if (!asset) return;
+      const asset = await getAsset(id); if (!asset) return;
       setCurrentAsset(asset); setParcelData(asset.parcel || null); setMarketData(asset.market || null);
       setUnderwriting(asset.underwriting || defaultUnderwriting); setNotes(asset.notes || '');
       if (asset.parcel?.geometry) setParcelGeometry(asset.parcel.geometry);
       if (asset.lat && asset.lng) setMapCenter({ lat: asset.lat, lng: asset.lng });
       setActiveTab('overview');
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const handleNewTarget = () => {
     setCurrentAsset(null); setParcelData(null); setMarketData(null);
-    setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null);
-    setNotes(''); setActiveTab('overview');
+    setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null); setNotes(''); setActiveTab('overview');
   };
 
   return (
-    <div className="min-h-screen bg-surface-0 flex flex-col">
-      <Navbar
-        savedAssets={savedAssets} onLoadAsset={handleLoadAsset} onNewTarget={handleNewTarget}
+    <div className="min-h-screen bg-surface-1 flex flex-col">
+      <Navbar savedAssets={savedAssets} onLoadAsset={handleLoadAsset} onNewTarget={handleNewTarget}
         onSave={() => handleSave(false)} saveStatus={saveStatus}
-        currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))}
-      />
+        currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))} />
 
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 px-6 py-1 bg-surface-1 border-b border-border">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-6 py-2 bg-white border-b border-border">
         {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-lg transition-all ${
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-xl transition-all ${
               activeTab === tab.id
-                ? 'bg-surface-3 text-text-primary shadow-sm'
+                ? 'bg-gradient-brand text-white shadow-glow-violet'
                 : 'text-text-tertiary hover:text-text-secondary hover:bg-surface-2'
-            }`}
-          >
+            }`}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
             </svg>
@@ -140,21 +107,10 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'overview' && (
-          <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData}
-            marketData={marketData} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry}
-            notes={notes} onNotesChange={setNotes} />
-        )}
-        {activeTab === 'underwriting' && (
-          <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting}
-            marketData={marketData} parcelData={parcelData} />
-        )}
-        {activeTab === 'map' && (
-          <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} />
-        )}
-        {activeTab === 'saved' && (
-          <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />
-        )}
+        {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
+        {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
+        {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} />}
+        {activeTab === 'saved' && <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />}
       </div>
     </div>
   );
