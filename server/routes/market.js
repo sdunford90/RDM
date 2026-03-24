@@ -162,9 +162,10 @@ router.post('/metrics/future-pacing', async (req, res) => {
 // ─── NEW: POST /api/market/calculator — revenue estimate ───
 router.post('/calculator', async (req, res) => {
   try {
-    const { lat, lng, currency = 'usd' } = req.body;
+    const { lat, lng, currency = 'usd', bedrooms = 2, baths = 1, guests = 4 } = req.body;
     if (!lat || !lng) return res.status(400).json({ error: 'Provide lat and lng' });
-    const data = await airroiGet(`/calculator/estimate?lat=${lat}&lng=${lng}&currency=${currency}`);
+    const params = new URLSearchParams({ lat, lng, currency, bedrooms, baths, guests }).toString();
+    const data = await airroiGet(`/calculator/estimate?${params}`);
     res.json(data);
   } catch (err) {
     console.error('Calculator error:', err);
