@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
     const active_listings = data.pagination?.total_count || results.length;
 
     // Aggregate performance metrics across all returned listings
-    const metrics = results.map(r => r.performance_metrics || {}).filter(m => m.ttm_avg_rate);
+    const metrics = results.map(r => r.performance_metrics || {}).filter(m => m.ttm_avg_rate > 0 && m.ttm_occupancy > 0);
 
     const avg = (arr, key) => {
       const vals = arr.map(m => m[key]).filter(v => v != null && v > 0);
@@ -54,7 +54,8 @@ router.post('/', async (req, res) => {
     };
 
     const avg_daily_rate = avg(metrics, 'ttm_avg_rate');
-    const avg_occupancy = avg(metrics, 'ttm_occupancy');
+    const avg_occupancy_decimal = avg(metrics, 'ttm_occupancy');
+    const avg_occupancy = avg_occupancy_decimal != null ? Math.round(avg_occupancy_decimal * 1000) / 10 : null;
     const avg_monthly_revenue = avg(metrics, 'ttm_revenue') ? Math.round(avg(metrics, 'ttm_revenue') / 12) : null;
 
     // Build monthly data from aggregated l90d if available
