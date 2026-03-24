@@ -4,6 +4,9 @@ import TargetOverview from './components/TargetOverview';
 import UnderwritingModel from './components/UnderwritingModel';
 import MapView from './components/MapView';
 import SavedTargets from './components/SavedTargets';
+import LoginPage from './components/LoginPage';
+import AdminPanel from './components/AdminPanel';
+import { useAuth } from './hooks/useAuth';
 import { fetchMapboxToken, fetchParcelData, fetchAdjacentParcels, fetchMarketData, fetchRevenueEstimate, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
 
 const TABS = [
@@ -20,6 +23,9 @@ const defaultUnderwriting = {
 };
 
 export default function App() {
+  const { user, loading: authLoading, isAuthenticated, isAdmin } = useAuth();
+
+  // All hooks must be called unconditionally before any early returns
   const [activeTab, setActiveTab] = useState('overview');
   const [mapboxToken, setMapboxToken] = useState(null);
   const [currentAsset, setCurrentAsset] = useState(null);
@@ -37,7 +43,11 @@ export default function App() {
   const [notes, setNotes] = useState('');
   const autoSaveTimer = useRef(null);
 
-  useEffect(() => { fetchMapboxToken().then(setMapboxToken).catch(console.error); loadSavedAssets(); }, []);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchMapboxToken().then(setMapboxToken).catch(console.error);
+    loadSavedAssets();
+  }, [isAuthenticated]);
 
   const loadSavedAssets = async () => { try { setSavedAssets(await listAssets()); } catch (e) { console.error(e); } };
 
@@ -127,11 +137,25 @@ export default function App() {
     setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null); setAdjacentParcels([]); setNotes(''); setActiveTab('overview');
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-surface-1 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-accent border-t-transparent" />
+          <p className="text-sm text-text-tertiary">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return <LoginPage />;
+
   return (
     <div className="min-h-screen bg-surface-1 flex flex-col">
       <Navbar savedAssets={savedAssets} onLoadAsset={handleLoadAsset} onNewTarget={handleNewTarget}
         onSave={() => handleSave(false)} saveStatus={saveStatus}
-        currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))} />
+        currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))}
+        user={user} />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 px-6 py-2 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 border-b border-violet-100">
@@ -154,7 +178,24 @@ export default function App() {
         {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} adjacentParcelsLoading={adjacentParcelsLoading} strConfig={strConfig} onStrConfigChange={handleStrConfigChange} onReestimate={handleReestimate} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
         {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
         {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} adjacentParcels={adjacentParcels} />}
-        {activeTab === 'saved' && <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />}
+        {activeTab === 'saved' && (
+          <div className="h-full overflow-y-auto">
+            <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />
+            {isAdmin && (
+              <div className="border-t border-border mt-4">
+                <div className="px-5 pt-4 pb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg bg-gradient-brand flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    </div>
+                    <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Admin</h2>
+                  </div>
+                </div>
+                <AdminPanel currentUser={user} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

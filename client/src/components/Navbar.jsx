@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 
-export default function Navbar({ savedAssets, onLoadAsset, onNewTarget, onSave, saveStatus, currentLabel, onLabelChange }) {
+export default function Navbar({ savedAssets, onLoadAsset, onNewTarget, onSave, saveStatus, currentLabel, onLabelChange, user }) {
   const [editingLabel, setEditingLabel] = useState(false);
+
+  const initials = user
+    ? ((user.firstName?.[0] || '') + (user.lastName?.[0] || '') || user.email?.[0] || '?').toUpperCase()
+    : '?';
 
   return (
     <nav className="flex items-center justify-between px-6 h-14 bg-white border-b border-border">
@@ -58,6 +62,21 @@ export default function Navbar({ savedAssets, onLoadAsset, onNewTarget, onSave, 
           className="px-4 py-1.5 text-xs font-semibold text-white bg-gradient-brand hover:opacity-90 rounded-xl shadow-glow-violet transition-all">
           + New Target
         </button>
+
+        {/* User avatar + logout */}
+        {user && (
+          <div className="flex items-center gap-2 pl-2 border-l border-border ml-1">
+            {user.profileImageUrl
+              ? <img src={user.profileImageUrl} className="w-7 h-7 rounded-full ring-2 ring-violet-200" alt={initials} title={user.email} />
+              : <div className="w-7 h-7 rounded-full bg-gradient-brand flex items-center justify-center text-white text-[10px] font-bold ring-2 ring-violet-200" title={user.email}>{initials}</div>
+            }
+            <a href="/api/logout"
+              className="text-xs font-medium text-text-tertiary hover:text-negative transition-colors"
+              title="Sign out">
+              Sign out
+            </a>
+          </div>
+        )}
       </div>
     </nav>
   );

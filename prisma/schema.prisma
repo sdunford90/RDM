@@ -7,6 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              String   @id
+  email           String?  @unique
+  firstName       String?
+  lastName        String?
+  profileImageUrl String?
+  isAdmin         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AllowedEmail {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  addedBy   String?
+  createdAt DateTime @default(now())
+}
+
 model Asset {
   id           String   @id @default(uuid())
   label        String   @default("")
