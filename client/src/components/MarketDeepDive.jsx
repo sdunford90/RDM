@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { lookupMarket, fetchAllMarketMetrics, fetchFuturePacing, fetchRevenueEstimate } from '../utils/api';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 import { Line, Bar } from 'react-chartjs-2';
+import InfoTip from './InfoTip';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -297,22 +298,6 @@ function Stat({ label, value, accent, tooltip }) {
       </p>
       <p className={`text-sm font-mono font-bold ${colors[accent] || 'text-text-primary'}`}>{value}</p>
     </div>
-  );
-}
-
-function InfoTip({ text }) {
-  const [show, setShow] = React.useState(false);
-  return (
-    <span className="relative inline-flex items-center" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <svg className="w-3 h-3 text-text-tertiary hover:text-accent cursor-help transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      {show && (
-        <span className="absolute bottom-full left-0 mb-1.5 w-60 bg-gray-900 text-white text-[10px] leading-relaxed rounded-xl px-3 py-2 shadow-2xl z-50 pointer-events-none font-normal normal-case tracking-normal">
-          {text}
-        </span>
-      )}
-    </span>
   );
 }
 

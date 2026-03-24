@@ -3,24 +3,9 @@ import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters
 import MarketCharts from './MarketCharts';
 import MarketDeepDive from './MarketDeepDive';
 import ListingDetail from './ListingDetail';
+import InfoTip from './InfoTip';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
-
-function InfoTip({ text }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span className="relative inline-flex items-center" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <svg className="w-3 h-3 text-text-tertiary hover:text-accent cursor-help transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      {show && (
-        <span className="absolute bottom-full left-0 mb-1.5 w-56 bg-gray-900 text-white text-[10px] leading-relaxed rounded-xl px-3 py-2 shadow-2xl z-50 pointer-events-none font-normal normal-case tracking-normal">
-          {text}
-        </span>
-      )}
-    </span>
-  );
-}
 
 export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
   const [address, setAddress] = useState('');
