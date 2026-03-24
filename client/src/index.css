@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'DM Sans', sans-serif;
+  background: #0F1523;
+  color: #E8EDF5;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1A2236;
+}
+::-webkit-scrollbar-thumb {
+  background: #2A3550;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #354163;
+}
+
+/* Mapbox overrides */
+.mapboxgl-ctrl-geocoder {
+  background-color: #1A2236 !important;
+  color: #E8EDF5 !important;
+  border: 1px solid #2A3550 !important;
+  border-radius: 8px !important;
+  font-family: 'Inter', sans-serif !important;
+  box-shadow: none !important;
+}
+.mapboxgl-ctrl-geocoder input {
+  color: #E8EDF5 !important;
+}
+.mapboxgl-ctrl-geocoder input::placeholder {
+  color: #8A9BBE !important;
+}
+.mapboxgl-ctrl-geocoder .suggestions {
+  background-color: #1A2236 !important;
+  border: 1px solid #2A3550 !important;
+}
+.mapboxgl-ctrl-geocoder .suggestions li a {
+  color: #E8EDF5 !important;
+}
+.mapboxgl-ctrl-geocoder .suggestions li a:hover,
+.mapboxgl-ctrl-geocoder .suggestions .active a {
+  background-color: #2A3550 !important;
+}
+.mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon-search {
+  fill: #8A9BBE !important;
+}
+
+/* Input styling */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+/* Slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #2A3550;
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C9A84C;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C9A84C;
+  cursor: pointer;
+  border: none;
+}
+
+/* Tab active underline animation */
+.tab-active {
+  border-bottom: 2px solid #C9A84C;
+  color: #C9A84C;
+}
