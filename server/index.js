@@ -5,6 +5,7 @@ const path = require('path');
 
 const parcelRoutes = require('./routes/parcel');
 const marketRoutes = require('./routes/market');
+const listingRoutes = require('./routes/listings');
 const assetRoutes = require('./routes/assets');
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 // API routes
 app.use('/api/parcel', parcelRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/listings', listingRoutes);
 app.use('/api/assets', assetRoutes);
 
 // Mapbox token endpoint (so frontend never has the raw env var)

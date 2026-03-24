@@ -4,7 +4,7 @@ import TargetOverview from './components/TargetOverview';
 import UnderwritingModel from './components/UnderwritingModel';
 import MapView from './components/MapView';
 import SavedTargets from './components/SavedTargets';
-import { fetchMapboxToken, fetchParcelData, fetchMarketData, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
+import { fetchMapboxToken, fetchParcelData, fetchMarketData, fetchRevenueEstimate, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -49,8 +49,26 @@ export default function App() {
     setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null);
     try {
       const { lat, lng } = coords || {};
-      const [parcel, market] = await Promise.all([fetchParcelData({ lat, lng, address }), fetchMarketData({ lat, lng, radius_miles: 10 })]);
-      setParcelData(parcel); setMarketData(market);
+      const [parcel, market, revEstimate] = await Promise.all([
+        fetchParcelData({ lat, lng, address }),
+        fetchMarketData({ lat, lng, radius_miles: 10 }),
+        fetchRevenueEstimate({ lat, lng }).catch(() => null),
+      ]);
+      // Merge revenue calculator estimate into market data if the radius search didn't produce one
+      const enrichedMarket = { ...market };
+      if (revEstimate && !revEstimate.error && (!market.estimate || !market.estimate.projected_annual_revenue)) {
+        enrichedMarket.estimate = {
+          projected_annual_revenue: revEstimate.projected_annual_revenue,
+          projected_adr: revEstimate.projected_adr,
+          projected_occupancy: revEstimate.projected_occupancy,
+          comp_count: revEstimate.comp_count,
+          monthly_revenue_breakdown: revEstimate.monthly_revenue_breakdown,
+          ...(market.estimate || {})
+        };
+      }
+      // Also store raw calculator estimate for reference
+      enrichedMarket.calculator_estimate = revEstimate;
+      setParcelData(parcel); setMarketData(enrichedMarket);
       if (parcel.geometry) setParcelGeometry(parcel.geometry);
       if (lat && lng) setMapCenter({ lat, lng });
       setUnderwriting(prev => { const next = { ...prev, expenses: { ...prev.expenses } }; if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0; return next; });
@@ -90,13 +108,13 @@ export default function App() {
         currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))} />
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-6 py-2 bg-white border-b border-border">
+      <div className="flex items-center gap-1 px-6 py-2 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 border-b border-violet-100">
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded-xl transition-all ${
               activeTab === tab.id
                 ? 'bg-gradient-brand text-white shadow-glow-violet'
-                : 'text-text-tertiary hover:text-text-secondary hover:bg-surface-2'
+                : 'text-violet-400 hover:text-violet-600 hover:bg-white/60'
             }`}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />

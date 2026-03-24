@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
 import MarketCharts from './MarketCharts';
+import MarketDeepDive from './MarketDeepDive';
+import ListingDetail from './ListingDetail';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
 export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
   const [address, setAddress] = useState('');
+  const [selectedListingId, setSelectedListingId] = useState(null);
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const geocoderRef = useRef(null);
@@ -187,14 +190,28 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
             )}
 
             {m.listing && (
-              <Sec title="Active Listing" color="cyan">
-                <D label="ID" value={m.listing.listing_id} />
-                {m.listing.listing_data?.avg_review_score && <D label="Rating" value={`${m.listing.listing_data.avg_review_score}/5`} />}
-                {m.listing.listing_data?.review_count && <D label="Reviews" value={m.listing.listing_data.review_count} />}
-              </Sec>
+              <div className="space-y-2">
+                <Sec title="Active Listing Found" color="cyan">
+                  <D label="ID" value={m.listing.listing_id} />
+                  {m.listing.listing_data?.avg_review_score && <D label="Rating" value={`${m.listing.listing_data.avg_review_score}/5`} />}
+                  {m.listing.listing_data?.review_count && <D label="Reviews" value={m.listing.listing_data.review_count} />}
+                </Sec>
+                <button onClick={() => setSelectedListingId(m.listing.listing_id)}
+                  className="w-full px-4 py-2 text-xs font-semibold bg-gradient-brand text-white rounded-xl shadow-glow-violet hover:opacity-90 transition-all">
+                  View Full Listing Detail + Comps + Rates
+                </button>
+              </div>
             )}
 
             <MarketCharts metrics={m.metrics} estimate={m.estimate} />
+
+            {/* Listing detail panel */}
+            {selectedListingId && (
+              <ListingDetail listingId={selectedListingId} onClose={() => setSelectedListingId(null)} />
+            )}
+
+            {/* Market Deep Dive */}
+            {mapCenter && <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} />}
           </>
         )}
 
