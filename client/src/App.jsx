@@ -30,6 +30,8 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState(null);
   const [parcelGeometry, setParcelGeometry] = useState(null);
   const [adjacentParcels, setAdjacentParcels] = useState([]);
+  const [adjacentParcelsLoading, setAdjacentParcelsLoading] = useState(false);
+  const [strConfig, setStrConfig] = useState({ bedrooms: 2, baths: 1, guests: 4 });
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
   const [notes, setNotes] = useState('');
@@ -47,13 +49,13 @@ export default function App() {
   }, [underwriting, notes, currentAsset?.id]);
 
   const handleAnalyze = async (address, coords, radius_miles = 10) => {
-    setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null); setAdjacentParcels([]);
+    setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null); setAdjacentParcels([]); setAdjacentParcelsLoading(false);
     try {
       const { lat, lng } = coords || {};
       const [parcel, market, revEstimate] = await Promise.all([
         fetchParcelData({ lat, lng, address }),
         fetchMarketData({ lat, lng, radius_miles }),
-        fetchRevenueEstimate({ lat, lng }).catch(() => null),
+        fetchRevenueEstimate({ lat, lng, ...strConfig }).catch(() => null),
       ]);
       // Merge revenue calculator estimate into market data if the radius search didn't produce one
       const enrichedMarket = { ...market };
@@ -74,9 +76,11 @@ export default function App() {
       if (lat && lng) {
         setMapCenter({ lat, lng });
         // Fetch adjacent parcels in background (non-blocking)
+        setAdjacentParcelsLoading(true);
         fetchAdjacentParcels({ lat, lng, radius: 400, limit: 50 })
-          .then(data => { if (data.parcels) setAdjacentParcels(data.parcels); })
-          .catch(e => console.warn('Adjacent parcels failed:', e));
+          .then(data => { setAdjacentParcels(data.parcels || []); })
+          .catch(e => { console.warn('Adjacent parcels failed:', e); setAdjacentParcels([]); })
+          .finally(() => setAdjacentParcelsLoading(false));
       }
       setUnderwriting(prev => { const next = { ...prev, expenses: { ...prev.expenses } }; if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0; return next; });
       setCurrentAsset(prev => ({ ...prev, address, lat, lng, label: prev?.label || parcel?.identity?.location_name || address?.split(',')[0] || 'New Target' }));
@@ -102,6 +106,20 @@ export default function App() {
       if (asset.lat && asset.lng) setMapCenter({ lat: asset.lat, lng: asset.lng });
       setActiveTab('overview');
     } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const handleReestimate = async (config) => {
+    if (!mapCenter) return;
+    const cfg = config || strConfig;
+    try {
+      const rev = await fetchRevenueEstimate({ lat: mapCenter.lat, lng: mapCenter.lng, ...cfg });
+      if (!rev || rev.error) return;
+      setMarketData(prev => prev ? { ...prev, calculator_estimate: rev, estimate: { ...(prev.estimate || {}), projected_annual_revenue: rev.projected_annual_revenue, projected_adr: rev.projected_adr, projected_occupancy: rev.projected_occupancy, comp_count: rev.comp_count } } : prev);
+    } catch (e) { console.error('Reestimate failed:', e); }
+  };
+
+  const handleStrConfigChange = (cfg) => {
+    setStrConfig(cfg);
   };
 
   const handleNewTarget = () => {
@@ -133,7 +151,7 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
+        {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} adjacentParcelsLoading={adjacentParcelsLoading} strConfig={strConfig} onStrConfigChange={handleStrConfigChange} onReestimate={handleReestimate} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
         {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
         {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} adjacentParcels={adjacentParcels} />}
         {activeTab === 'saved' && <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />}

@@ -99,10 +99,10 @@ export async function fetchFuturePacing({ market, filter }) {
   return res.json();
 }
 
-export async function fetchRevenueEstimate({ lat, lng }) {
+export async function fetchRevenueEstimate({ lat, lng, bedrooms = 2, baths = 1, guests = 4 }) {
   const res = await fetch(`${API_BASE}/market/calculator`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lat, lng, currency: 'usd' })
+    body: JSON.stringify({ lat, lng, currency: 'usd', bedrooms, baths, guests })
   });
   return res.json();
 }

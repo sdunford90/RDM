@@ -7,7 +7,7 @@ import InfoTip from './InfoTip';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
-export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
+export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], adjacentParcelsLoading = false, strConfig = { bedrooms: 2, baths: 1, guests: 4 }, onStrConfigChange, onReestimate, loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
   const [address, setAddress] = useState('');
   const [selectedListingId, setSelectedListingId] = useState(null);
   const [radius, setRadius] = useState(10);
@@ -54,6 +54,43 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
     };
     if (map.isStyleLoaded()) add(); else map.on('load', add);
   }, [parcelGeometry]);
+
+  const [reestimating, setReestimating] = useState(false);
+
+  // Draw adjacent parcel polygons on the Overview mini-map
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const applyLayers = () => {
+      // Remove old layers/source if present
+      ['adj-fill', 'adj-outline'].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+      if (map.getSource('adj-parcels')) map.removeSource('adj-parcels');
+
+      if (!adjacentParcels.length) return;
+
+      const features = adjacentParcels.filter(p => p.geometry).map(p => ({
+        type: 'Feature', geometry: p.geometry,
+        properties: { isRelated: p.isRelated || false }
+      }));
+      if (!features.length) return;
+
+      map.addSource('adj-parcels', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+      map.addLayer({ id: 'adj-fill', type: 'fill', source: 'adj-parcels',
+        paint: { 'fill-color': ['case', ['get', 'isRelated'], '#7c3aed', '#0ea5e9'], 'fill-opacity': ['case', ['get', 'isRelated'], 0.18, 0.08] }
+      });
+      map.addLayer({ id: 'adj-outline', type: 'line', source: 'adj-parcels',
+        paint: { 'line-color': ['case', ['get', 'isRelated'], '#a855f7', '#38bdf8'], 'line-width': ['case', ['get', 'isRelated'], 2, 1], 'line-opacity': 0.7 }
+      });
+    };
+
+    if (map.isStyleLoaded()) applyLayers(); else map.once('load', applyLayers);
+  }, [adjacentParcels]);
+
+  const handleReestimateClick = async (cfg) => {
+    setReestimating(true);
+    try { await onReestimate?.(cfg); } finally { setReestimating(false); }
+  };
 
   const handleRadiusChange = (r) => { setRadius(r); radiusRef.current = r; };
 
@@ -206,16 +243,70 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
             </Sec>
 
             {m.estimate && (
-              <Sec title="Revenue Estimate" color="emerald">
-                <D label="Annual Rev" value={m.estimate.projected_annual_revenue ? formatCurrency(m.estimate.projected_annual_revenue) : null} accent
-                  tooltip="ML-projected gross annual revenue for a 2BR/1BA/4-guest unit at this location. Based on AirROI's model trained on nearby comp performance. Adjust for actual unit size." />
-                <D label="Est ADR" value={m.estimate.projected_adr ? `$${Math.round(m.estimate.projected_adr)}/nt` : null} accent
-                  tooltip="ML-projected average nightly rate for a 2BR/1BA/4-guest unit. May differ from the market ADR above if nearby STRs vary significantly in size or type." />
-                <D label="Est Occ" value={m.estimate.projected_occupancy ? formatPercent(m.estimate.projected_occupancy) : null} accent
-                  tooltip="ML-projected annual occupancy rate for a 2BR/1BA/4-guest unit at this address. Based on comp performance and seasonal demand patterns." />
-                <D label="Comps" value={m.estimate.comp_count}
-                  tooltip="Number of comparable listings the AirROI ML model used to generate this estimate. Fewer comps = lower confidence." />
-              </Sec>
+              <div className="space-y-2">
+                {/* Bed/bath/guests config row */}
+                <div className="bg-surface-1 border border-border rounded-2xl px-3 py-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1">
+                      Revenue Estimate Config
+                      <InfoTip text="Adjust the unit configuration used to estimate STR revenue. The calculator uses comps with similar bedroom/bathroom counts near this location." />
+                    </span>
+                    <button onClick={() => handleReestimateClick(strConfig)} disabled={reestimating || !mapCenter}
+                      className="flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold bg-gradient-brand text-white rounded-lg shadow-sm hover:opacity-90 transition-all disabled:opacity-40">
+                      {reestimating ? <><Spinner />Running...</> : 'Re-run'}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider">Bedrooms</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <button key={n} type="button"
+                            onClick={() => { const c = { ...strConfig, bedrooms: n }; onStrConfigChange?.(c); }}
+                            className={`w-7 h-7 rounded-lg text-[11px] font-semibold transition-all ${strConfig.bedrooms === n ? 'bg-accent text-white shadow-sm' : 'bg-white border border-border text-text-tertiary hover:border-accent/40 hover:text-text-primary'}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider">Baths</span>
+                      <div className="flex gap-1">
+                        {[1, 1.5, 2, 2.5, 3].map(n => (
+                          <button key={n} type="button"
+                            onClick={() => { const c = { ...strConfig, baths: n }; onStrConfigChange?.(c); }}
+                            className={`px-2 h-7 rounded-lg text-[11px] font-semibold transition-all ${strConfig.baths === n ? 'bg-accent text-white shadow-sm' : 'bg-white border border-border text-text-tertiary hover:border-accent/40 hover:text-text-primary'}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider">Guests</span>
+                      <div className="flex gap-1">
+                        {[2, 4, 6, 8, 10].map(n => (
+                          <button key={n} type="button"
+                            onClick={() => { const c = { ...strConfig, guests: n }; onStrConfigChange?.(c); }}
+                            className={`w-7 h-7 rounded-lg text-[11px] font-semibold transition-all ${strConfig.guests === n ? 'bg-accent text-white shadow-sm' : 'bg-white border border-border text-text-tertiary hover:border-accent/40 hover:text-text-primary'}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Sec title={`Revenue Estimate · ${strConfig.bedrooms}BR/${strConfig.baths}BA/${strConfig.guests} guests`} color="emerald">
+                  <D label="Annual Rev" value={m.estimate.projected_annual_revenue ? formatCurrency(m.estimate.projected_annual_revenue) : null} accent
+                    tooltip="ML-projected gross annual revenue for a unit at this location based on the selected bed/bath/guest configuration. Based on AirROI's model trained on nearby comp performance." />
+                  <D label="Est ADR" value={m.estimate.projected_adr ? `$${Math.round(m.estimate.projected_adr)}/nt` : null} accent
+                    tooltip="ML-projected average nightly rate for the selected configuration. May differ from the market ADR above if nearby STRs vary significantly in size or type." />
+                  <D label="Est Occ" value={m.estimate.projected_occupancy ? formatPercent(m.estimate.projected_occupancy) : null} accent
+                    tooltip="ML-projected annual occupancy rate at this address. Based on comp performance and seasonal demand patterns." />
+                  <D label="Comps" value={m.estimate.comp_count}
+                    tooltip="Number of comparable listings the AirROI ML model used to generate this estimate. Fewer comps = lower confidence." />
+                </Sec>
+              </div>
             )}
 
             {m.listing && (
@@ -273,7 +364,10 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
         {mapCenter && adjacentParcels.length === 0 && p && (
           <div className="pl-3 border-l-2 border-l-slate-300">
             <h3 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-1">Adjacent Parcels</h3>
-            <p className="text-xs text-text-tertiary">Searching nearby parcels... (requires Regrid coverage for this county)</p>
+            {adjacentParcelsLoading
+              ? <p className="text-xs text-text-tertiary flex items-center gap-1.5"><Spinner />Fetching nearby parcels...</p>
+              : <p className="text-xs text-text-tertiary">No parcel data returned — Regrid may not have coverage for this county yet.</p>
+            }
           </div>
         )}
 
