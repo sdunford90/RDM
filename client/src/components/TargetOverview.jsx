@@ -6,9 +6,27 @@ import ListingDetail from './ListingDetail';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
+function InfoTip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-flex items-center" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <svg className="w-3 h-3 text-text-tertiary hover:text-accent cursor-help transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {show && (
+        <span className="absolute bottom-full left-0 mb-1.5 w-56 bg-gray-900 text-white text-[10px] leading-relaxed rounded-xl px-3 py-2 shadow-2xl z-50 pointer-events-none font-normal normal-case tracking-normal">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
   const [address, setAddress] = useState('');
   const [selectedListingId, setSelectedListingId] = useState(null);
+  const [radius, setRadius] = useState(10);
+  const radiusRef = useRef(10);
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const geocoderRef = useRef(null);
@@ -24,7 +42,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
       map.addControl(new mapboxgl.NavigationControl(), 'top-right');
       geocoder = new MapboxGeocoder({ accessToken: mapboxToken, mapboxgl, placeholder: 'Search address...', countries: 'us', types: 'address,poi,place' });
       if (geocoderContainer.current) { geocoderContainer.current.innerHTML = ''; geocoderContainer.current.appendChild(geocoder.onAdd(map)); }
-      geocoder.on('result', (e) => { const { center, place_name } = e.result; setAddress(place_name); onAnalyze(place_name, { lat: center[1], lng: center[0] }); });
+      geocoder.on('result', (e) => { const { center, place_name } = e.result; setAddress(place_name); onAnalyze(place_name, { lat: center[1], lng: center[0] }, radiusRef.current); });
       mapRef.current = map; geocoderRef.current = geocoder;
     } catch (err) { if (map) try { map.remove(); } catch (_) {} return; }
     return () => {
@@ -52,11 +70,13 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
     if (map.isStyleLoaded()) add(); else map.on('load', add);
   }, [parcelGeometry]);
 
+  const handleRadiusChange = (r) => { setRadius(r); radiusRef.current = r; };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!address.trim() || !mapboxToken) return;
     fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${mapboxToken}&country=us`)
-      .then(r => r.json()).then(data => { if (data.features?.length > 0) { const [lng, lat] = data.features[0].center; onAnalyze(address, { lat, lng }); } });
+      .then(r => r.json()).then(data => { if (data.features?.length > 0) { const [lng, lat] = data.features[0].center; onAnalyze(address, { lat, lng }, radiusRef.current); } });
   };
 
   const p = parcelData, m = marketData;
@@ -74,6 +94,20 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
               className="px-6 py-2.5 bg-gradient-brand text-white rounded-xl font-semibold text-sm shadow-glow-violet hover:opacity-90 transition-all disabled:opacity-50">
               {loading ? <span className="flex items-center gap-2"><Spinner />Analyzing</span> : 'Analyze'}
             </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider flex items-center gap-1">
+              STR Radius
+              <InfoTip text="Geographic radius used to pull comparable STR listings from AirROI. Wider = more comps but less local precision. Re-analyze after changing." />
+            </span>
+            <div className="flex gap-1 ml-1">
+              {[5, 10, 15, 25].map(r => (
+                <button key={r} type="button" onClick={() => handleRadiusChange(r)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${radius === r ? 'bg-accent text-white shadow-sm' : 'bg-surface-1 text-text-tertiary border border-border hover:text-text-primary hover:border-accent/40'}`}>
+                  {r} mi
+                </button>
+              ))}
+            </div>
           </div>
         </form>
 
@@ -172,20 +206,30 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
         {m && !m.error && (
           <>
             <Sec title="STR Market" color="fuchsia">
-              <D label="ADR" value={m.summary?.avg_daily_rate || m.avg_daily_rate ? `$${m.summary?.avg_daily_rate || m.avg_daily_rate}/nt` : null} accent />
-              <D label="Occupancy" value={m.summary?.avg_occupancy || m.avg_occupancy ? formatPercent(m.summary?.avg_occupancy || m.avg_occupancy) : null} accent />
-              <D label="Monthly Rev" value={m.summary?.avg_monthly_revenue || m.avg_monthly_revenue ? formatCurrency(m.summary?.avg_monthly_revenue || m.avg_monthly_revenue) : null} />
-              <D label="Listings" value={m.summary?.active_listings || m.active_listings ? formatNumber(m.summary?.active_listings || m.active_listings) : null} />
-              {m.metrics?.revpar?.value && <D label="RevPAR" value={`$${m.metrics.revpar.value}`} />}
-              <D label="Radius" value={`${m.radius_miles || 10} mi`} />
+              <D label="ADR" value={m.summary?.avg_daily_rate || m.avg_daily_rate ? `$${m.summary?.avg_daily_rate || m.avg_daily_rate}/nt` : null} accent
+                tooltip="Average Daily Rate — the average nightly price across active STRs within the search radius, based on trailing 12 months of booking data." />
+              <D label="Occupancy" value={m.summary?.avg_occupancy || m.avg_occupancy ? formatPercent(m.summary?.avg_occupancy || m.avg_occupancy) : null} accent
+                tooltip="Trailing 12-month average occupancy rate across active STRs in the radius. Higher = more nights booked per year." />
+              <D label="Monthly Rev" value={m.summary?.avg_monthly_revenue || m.avg_monthly_revenue ? formatCurrency(m.summary?.avg_monthly_revenue || m.avg_monthly_revenue) : null}
+                tooltip="Average gross monthly revenue per listing in the radius. This is actual performance from comparable active listings, not a projection." />
+              <D label="Listings" value={m.summary?.active_listings || m.active_listings ? formatNumber(m.summary?.active_listings || m.active_listings) : null}
+                tooltip="Number of active STR listings found within the search radius at the time of analysis. A small comp set may reduce reliability." />
+              {m.metrics?.revpar?.value && <D label="RevPAR" value={`$${m.metrics.revpar.value}`}
+                tooltip="Revenue Per Available Room — ADR × Occupancy. Combines rate and occupancy into one performance metric. Higher RevPAR = more efficient revenue generation." />}
+              <D label="Radius" value={`${m.radius_miles || 10} mi`}
+                tooltip="The search radius used to pull comparable STR listings. Adjust using the radius selector above and re-analyze to see a tighter or wider comp set." />
             </Sec>
 
             {m.estimate && (
               <Sec title="Revenue Estimate" color="emerald">
-                <D label="Annual Rev" value={m.estimate.projected_annual_revenue ? formatCurrency(m.estimate.projected_annual_revenue) : null} accent />
-                <D label="Est ADR" value={m.estimate.projected_adr ? `$${m.estimate.projected_adr}/nt` : null} accent />
-                <D label="Est Occ" value={m.estimate.projected_occupancy ? formatPercent(m.estimate.projected_occupancy) : null} accent />
-                <D label="Comps" value={m.estimate.comp_count} />
+                <D label="Annual Rev" value={m.estimate.projected_annual_revenue ? formatCurrency(m.estimate.projected_annual_revenue) : null} accent
+                  tooltip="ML-projected gross annual revenue for a 2BR/1BA/4-guest unit at this location. Based on AirROI's model trained on nearby comp performance. Adjust for actual unit size." />
+                <D label="Est ADR" value={m.estimate.projected_adr ? `$${Math.round(m.estimate.projected_adr)}/nt` : null} accent
+                  tooltip="ML-projected average nightly rate for a 2BR/1BA/4-guest unit. May differ from the market ADR above if nearby STRs vary significantly in size or type." />
+                <D label="Est Occ" value={m.estimate.projected_occupancy ? formatPercent(m.estimate.projected_occupancy) : null} accent
+                  tooltip="ML-projected annual occupancy rate for a 2BR/1BA/4-guest unit at this address. Based on comp performance and seasonal demand patterns." />
+                <D label="Comps" value={m.estimate.comp_count}
+                  tooltip="Number of comparable listings the AirROI ML model used to generate this estimate. Fewer comps = lower confidence." />
               </Sec>
             )}
 
@@ -279,11 +323,14 @@ function Sec({ title, children, color = 'violet' }) {
   );
 }
 
-function D({ label, value, accent, full }) {
+function D({ label, value, accent, full, tooltip }) {
   if (value == null) return null;
   return (
     <div className={`bg-surface-1 rounded-xl px-3 py-2.5 ${full ? 'col-span-2' : ''}`}>
-      <p className="text-[10px] text-text-tertiary uppercase tracking-wider leading-none mb-1">{label}</p>
+      <p className="text-[10px] text-text-tertiary uppercase tracking-wider leading-none mb-1 flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTip text={tooltip} />}
+      </p>
       <p className={`text-[13px] font-mono leading-tight break-words ${accent ? 'text-accent font-semibold' : 'text-text-primary'}`}>{String(value)}</p>
     </div>
   );

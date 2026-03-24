@@ -46,13 +46,13 @@ export default function App() {
     return () => clearTimeout(autoSaveTimer.current);
   }, [underwriting, notes, currentAsset?.id]);
 
-  const handleAnalyze = async (address, coords) => {
+  const handleAnalyze = async (address, coords, radius_miles = 10) => {
     setLoading(true); setParcelData(null); setMarketData(null); setParcelGeometry(null); setAdjacentParcels([]);
     try {
       const { lat, lng } = coords || {};
       const [parcel, market, revEstimate] = await Promise.all([
         fetchParcelData({ lat, lng, address }),
-        fetchMarketData({ lat, lng, radius_miles: 10 }),
+        fetchMarketData({ lat, lng, radius_miles }),
         fetchRevenueEstimate({ lat, lng }).catch(() => null),
       ]);
       // Merge revenue calculator estimate into market data if the radius search didn't produce one
