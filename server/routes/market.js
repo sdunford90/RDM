@@ -26,8 +26,7 @@ router.post('/', async (req, res) => {
       body: JSON.stringify({
         latitude: lat,
         longitude: lng,
-        radius_miles: radius_miles,
-        pagination: { page_size: 50, offset: 0 }
+        radius_miles: radius_miles
       })
     });
 
