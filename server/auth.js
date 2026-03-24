@@ -78,18 +78,27 @@ async function upsertUser(claims) {
   return user;
 }
 
-const registeredStrategies = new Set();
+// Derive the public base URL from REPLIT_DOMAINS (first entry) or fall back to the request hostname.
+// This avoids the Vite proxy stripping the real host (changeOrigin:true makes req.hostname = 'localhost').
+function getBaseUrl(req) {
+  const domains = process.env.REPLIT_DOMAINS;
+  if (domains) return `https://${domains.split(',')[0].trim()}`;
+  // Fallback: use whatever host the client says it came from
+  const host = req.get('x-forwarded-host') || req.get('host') || req.hostname;
+  return `${req.protocol}://${host}`;
+}
 
-function ensureStrategy(hostname, config) {
-  const name = `replitauth:${hostname}`;
-  if (!registeredStrategies.has(name)) {
+let strategyRegistered = false;
+
+function ensureStrategy(baseUrl, config) {
+  if (!strategyRegistered) {
     passport.use(
       new Strategy(
         {
-          name,
+          name: 'replitauth',
           config,
           scope: 'openid email profile offline_access',
-          callbackURL: `https://${hostname}/api/callback`,
+          callbackURL: `${baseUrl}/api/callback`,
         },
         async (tokens, verified) => {
           try {
@@ -105,7 +114,7 @@ function ensureStrategy(hostname, config) {
         }
       )
     );
-    registeredStrategies.add(name);
+    strategyRegistered = true;
   }
 }
 
@@ -121,8 +130,8 @@ async function setupAuth(app) {
   app.get('/api/login', async (req, res, next) => {
     try {
       const config = await getOidcConfig();
-      ensureStrategy(req.hostname, config);
-      passport.authenticate(`replitauth:${req.hostname}`, {
+      ensureStrategy(getBaseUrl(req), config);
+      passport.authenticate('replitauth', {
         prompt: 'login consent',
         scope: ['openid', 'email', 'profile', 'offline_access'],
       })(req, res, next);
@@ -132,8 +141,8 @@ async function setupAuth(app) {
   app.get('/api/callback', async (req, res, next) => {
     try {
       const config = await getOidcConfig();
-      ensureStrategy(req.hostname, config);
-      passport.authenticate(`replitauth:${req.hostname}`, {
+      ensureStrategy(getBaseUrl(req), config);
+      passport.authenticate('replitauth', {
         successRedirect: '/',
         failureRedirect: '/access-denied',
       })(req, res, next);
@@ -146,7 +155,7 @@ async function setupAuth(app) {
         const config = await getOidcConfig();
         const endUrl = oidc.buildEndSessionUrl(config, {
           client_id: process.env.REPL_ID,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          post_logout_redirect_uri: getBaseUrl(req),
         }).href;
         res.redirect(endUrl);
       } catch {
