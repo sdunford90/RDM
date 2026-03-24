@@ -11,6 +11,7 @@ export default function MapView({ mapboxToken, center, parcelGeometry, parcelDat
 
   useEffect(() => {
     if (!mapboxToken || !mapContainer.current) return;
+    if (!mapboxgl.supported()) return;
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
@@ -21,13 +22,19 @@ export default function MapView({ mapboxToken, center, parcelGeometry, parcelDat
       ? 'mapbox://styles/mapbox/satellite-streets-v12'
       : 'mapbox://styles/mapbox/dark-v11';
 
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: styleUrl,
-      center: center ? [center.lng, center.lat] : [-96.7, 32.9],
-      zoom: center ? 16 : 4,
-      pitch: center ? 45 : 0
-    });
+    let map;
+    try {
+      map = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: styleUrl,
+        center: center ? [center.lng, center.lat] : [-96.7, 32.9],
+        zoom: center ? 16 : 4,
+        pitch: center ? 45 : 0
+      });
+    } catch (err) {
+      console.warn('Failed to initialize map:', err);
+      return;
+    }
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
@@ -138,6 +145,11 @@ export default function MapView({ mapboxToken, center, parcelGeometry, parcelDat
       {!mapboxToken && (
         <div className="absolute inset-0 flex items-center justify-center bg-navy-800">
           <p className="text-slate-secondary">Configure MAPBOX_TOKEN to enable map</p>
+        </div>
+      )}
+      {mapboxToken && !mapboxgl.supported() && (
+        <div className="absolute inset-0 flex items-center justify-center bg-navy-800">
+          <p className="text-slate-secondary text-sm">Map requires WebGL — open the app in a full browser tab to view the map</p>
         </div>
       )}
     </div>

@@ -41,3 +41,10 @@ externalPort = 80
 deploymentTarget = "vm"
 run = ["node", "server/index.js"]
 build = ["bash", "-c", "cd client && npm install && npx vite build"]
+
+[userenv]
+
+[userenv.shared]
+MAPBOX_TOKEN = "pk.eyJ1Ijoic2R1bmZvcmQiLCJhIjoiY21uNHQ2OHg0MDNzMDJwb2lqNXBxYW1ubyJ9.Bg-zK2d-H9donxVdMzKLiw"
+REGRID_API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJyZWdyaWQuY29tIiwiaWF0IjoxNzc0MzcwODU2LCJleHAiOjE3NzY5NjI4NTYsInUiOjczMTk5MSwiZyI6MjMxNTMsImNhcCI6InBhOnRzOnBzOmJmOm1hOnR5OmVvOnpvOnNiIn0.XVKFqsiDjJ97o--GWMI-sw7AXTo98adt8JJ_aKg-DJs"
+AIRROI_API_KEY = "umhWkmpXpJaoTyiQTLSJa5722gr98D0q4JYZ63Zb"

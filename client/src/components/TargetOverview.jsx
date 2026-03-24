@@ -15,13 +15,24 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
     if (!mapboxToken || !mapContainer.current) return;
     if (mapRef.current) return;
 
+    if (!mapboxgl.supported()) {
+      console.warn('Mapbox GL is not supported in this environment (WebGL unavailable).');
+      return;
+    }
+
     mapboxgl.accessToken = mapboxToken;
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [-96.7, 32.9],
-      zoom: 4
-    });
+    let map;
+    try {
+      map = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [-96.7, 32.9],
+        zoom: 4
+      });
+    } catch (err) {
+      console.warn('Failed to initialize map:', err);
+      return;
+    }
 
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
@@ -218,6 +229,11 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
         {!mapboxToken && (
           <div className="absolute inset-0 flex items-center justify-center bg-navy-800">
             <p className="text-slate-secondary text-sm">Configure MAPBOX_TOKEN to enable map view</p>
+          </div>
+        )}
+        {mapboxToken && !mapboxgl.supported() && (
+          <div className="absolute inset-0 flex items-center justify-center bg-navy-800">
+            <p className="text-slate-secondary text-sm">Map requires WebGL — open the app in a full browser tab to view the map</p>
           </div>
         )}
       </div>
