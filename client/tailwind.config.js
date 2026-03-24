@@ -7,25 +7,45 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: {
-          900: '#0F1523',
-          800: '#1A2236',
-          700: '#2A3550',
-          600: '#354163'
+        surface: {
+          0: '#09090b',
+          1: '#111113',
+          2: '#18181b',
+          3: '#1f1f23',
+          4: '#27272a',
         },
-        gold: {
-          DEFAULT: '#C9A84C',
-          light: '#D4BA6A',
-          dark: '#B89A3E'
+        border: {
+          DEFAULT: '#27272a',
+          subtle: '#1f1f23',
+          hover: '#3f3f46',
         },
-        slate: {
-          text: '#E8EDF5',
-          secondary: '#8A9BBE'
-        }
+        text: {
+          primary: '#fafafa',
+          secondary: '#a1a1aa',
+          tertiary: '#71717a',
+        },
+        accent: {
+          DEFAULT: '#6366f1',
+          light: '#818cf8',
+          muted: 'rgba(99, 102, 241, 0.15)',
+          text: '#a5b4fc',
+        },
+        positive: '#34d399',
+        negative: '#f87171',
+        warn: '#fbbf24',
       },
       fontFamily: {
-        mono: ['"IBM Plex Mono"', 'monospace'],
-        sans: ['Inter', '"DM Sans"', 'sans-serif']
+        mono: ['"JetBrains Mono"', '"IBM Plex Mono"', 'monospace'],
+        sans: ['"Inter"', 'system-ui', 'sans-serif']
+      },
+      boxShadow: {
+        glow: '0 0 20px rgba(99, 102, 241, 0.15)',
+        card: '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
+        'card-hover': '0 4px 12px rgba(0, 0, 0, 0.4)',
+      },
+      backgroundImage: {
+        'gradient-subtle': 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05))',
+        'gradient-card': 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)',
       }
     }
   },

@@ -16,124 +16,41 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
   };
 
   const updateSlip = (idx, field, value) => {
-    setUnderwriting(prev => {
-      const next = { ...prev, slipCategories: [...prev.slipCategories] };
-      next.slipCategories[idx] = { ...next.slipCategories[idx], [field]: value };
-      return next;
-    });
+    setUnderwriting(prev => { const next = { ...prev, slipCategories: [...prev.slipCategories] }; next.slipCategories[idx] = { ...next.slipCategories[idx], [field]: value }; return next; });
   };
-
-  const addSlip = () => {
-    setUnderwriting(prev => ({
-      ...prev,
-      slipCategories: [...prev.slipCategories, {
-        label: '', size: 0, count: 0, monthlyRate: 0, occupancy: 85, seasonal: false, activeMonths: 7
-      }]
-    }));
-  };
-
-  const removeSlip = (idx) => {
-    setUnderwriting(prev => ({
-      ...prev,
-      slipCategories: prev.slipCategories.filter((_, i) => i !== idx)
-    }));
-  };
+  const addSlip = () => setUnderwriting(prev => ({ ...prev, slipCategories: [...prev.slipCategories, { label: '', size: 0, count: 0, monthlyRate: 0, occupancy: 85, seasonal: false, activeMonths: 7 }] }));
+  const removeSlip = (idx) => setUnderwriting(prev => ({ ...prev, slipCategories: prev.slipCategories.filter((_, i) => i !== idx) }));
 
   const updateSTR = (idx, field, value) => {
-    setUnderwriting(prev => {
-      const next = { ...prev, strUnits: [...prev.strUnits] };
-      next.strUnits[idx] = { ...next.strUnits[idx], [field]: value };
-      return next;
-    });
+    setUnderwriting(prev => { const next = { ...prev, strUnits: [...prev.strUnits] }; next.strUnits[idx] = { ...next.strUnits[idx], [field]: value }; return next; });
   };
-
   const addSTR = () => {
-    // Pre-fill from AirROI property estimate first, then market summary, then flat values
     const estADR = marketData?.estimate?.projected_adr || marketData?.summary?.avg_daily_rate || marketData?.avg_daily_rate || 0;
     const estOcc = marketData?.estimate?.projected_occupancy || marketData?.summary?.avg_occupancy || marketData?.avg_occupancy || 65;
-    setUnderwriting(prev => ({
-      ...prev,
-      strUnits: [...prev.strUnits, {
-        label: '',
-        count: 0,
-        adr: estADR,
-        occupancy: estOcc,
-        availableNights: 365
-      }]
-    }));
+    setUnderwriting(prev => ({ ...prev, strUnits: [...prev.strUnits, { label: '', count: 0, adr: estADR, occupancy: estOcc, availableNights: 365 }] }));
   };
-
-  const removeSTR = (idx) => {
-    setUnderwriting(prev => ({
-      ...prev,
-      strUnits: prev.strUnits.filter((_, i) => i !== idx)
-    }));
-  };
+  const removeSTR = (idx) => setUnderwriting(prev => ({ ...prev, strUnits: prev.strUnits.filter((_, i) => i !== idx) }));
 
   const updateOtherRev = (idx, field, value) => {
-    setUnderwriting(prev => {
-      const next = { ...prev, otherRevenue: [...prev.otherRevenue] };
-      next.otherRevenue[idx] = { ...next.otherRevenue[idx], [field]: value };
-      return next;
-    });
+    setUnderwriting(prev => { const next = { ...prev, otherRevenue: [...prev.otherRevenue] }; next.otherRevenue[idx] = { ...next.otherRevenue[idx], [field]: value }; return next; });
   };
+  const addOtherRev = () => setUnderwriting(prev => ({ ...prev, otherRevenue: [...prev.otherRevenue, { label: '', amount: 0 }] }));
+  const removeOtherRev = (idx) => setUnderwriting(prev => ({ ...prev, otherRevenue: prev.otherRevenue.filter((_, i) => i !== idx) }));
 
-  const addOtherRev = () => {
-    setUnderwriting(prev => ({
-      ...prev,
-      otherRevenue: [...prev.otherRevenue, { label: '', amount: 0 }]
-    }));
-  };
-
-  const removeOtherRev = (idx) => {
-    setUnderwriting(prev => ({
-      ...prev,
-      otherRevenue: prev.otherRevenue.filter((_, i) => i !== idx)
-    }));
-  };
-
-  // Calculations
   const calc = useMemo(() => {
-    // Marina slip revenue
-    const slipRevenue = u.slipCategories.reduce((sum, s) => {
-      const months = s.seasonal ? (s.activeMonths || 7) : 12;
-      return sum + (s.count * s.monthlyRate * (s.occupancy / 100) * months);
-    }, 0);
-
-    // STR revenue
-    const strRevenue = u.strUnits.reduce((sum, s) => {
-      return sum + (s.count * s.adr * (s.occupancy / 100) * s.availableNights);
-    }, 0);
-
-    // Blended ADR and occupancy
+    const slipRevenue = u.slipCategories.reduce((sum, s) => sum + (s.count * s.monthlyRate * (s.occupancy / 100) * (s.seasonal ? (s.activeMonths || 7) : 12)), 0);
+    const strRevenue = u.strUnits.reduce((sum, s) => sum + (s.count * s.adr * (s.occupancy / 100) * s.availableNights), 0);
     const totalSTRUnits = u.strUnits.reduce((s, unit) => s + unit.count, 0);
-    const blendedADR = totalSTRUnits > 0
-      ? u.strUnits.reduce((s, unit) => s + unit.adr * unit.count, 0) / totalSTRUnits
-      : 0;
-    const blendedOcc = totalSTRUnits > 0
-      ? u.strUnits.reduce((s, unit) => s + unit.occupancy * unit.count, 0) / totalSTRUnits
-      : 0;
-
-    // Other revenue
+    const blendedADR = totalSTRUnits > 0 ? u.strUnits.reduce((s, unit) => s + unit.adr * unit.count, 0) / totalSTRUnits : 0;
+    const blendedOcc = totalSTRUnits > 0 ? u.strUnits.reduce((s, unit) => s + unit.occupancy * unit.count, 0) / totalSTRUnits : 0;
     const otherRev = u.otherRevenue.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-
     const totalEGR = slipRevenue + strRevenue + otherRev;
-
-    // Expenses
     const exp = u.expenses;
     const mgmtFee = exp.mgmtFeeEnabled ? totalEGR * (exp.mgmtFeePct / 100) : 0;
-    const maintenance = exp.maintenanceMode === 'percent'
-      ? totalEGR * (exp.maintenancePct / 100)
-      : Number(exp.maintenanceFlat);
-
-    const totalOpex = mgmtFee + Number(exp.propertyTaxes) + Number(exp.insurance) +
-      Number(exp.utilities) + maintenance + Number(exp.payroll) +
-      Number(exp.marketing) + Number(exp.otherOpex);
-
+    const maintenance = exp.maintenanceMode === 'percent' ? totalEGR * (exp.maintenancePct / 100) : Number(exp.maintenanceFlat);
+    const totalOpex = mgmtFee + Number(exp.propertyTaxes) + Number(exp.insurance) + Number(exp.utilities) + maintenance + Number(exp.payroll) + Number(exp.marketing) + Number(exp.otherOpex);
     const expenseRatio = totalEGR > 0 ? (totalOpex / totalEGR) * 100 : 0;
     const noi = totalEGR - totalOpex;
-
-    // Valuation
     const purchasePrice = Number(u.purchasePrice) || 0;
     const capRate = purchasePrice > 0 ? (noi / purchasePrice) * 100 : 0;
     const grm = totalEGR > 0 ? purchasePrice / totalEGR : 0;
@@ -143,283 +60,178 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
     const targetCapRate = Number(u.targetCapRate) || 7;
     const impliedValue = targetCapRate > 0 ? noi / (targetCapRate / 100) : 0;
     const variance = impliedValue - purchasePrice;
-
-    return {
-      slipRevenue, strRevenue, otherRev, totalEGR,
-      mgmtFee, maintenance, totalOpex, expenseRatio, noi,
-      capRate, grm, pricePerSlip, pricePerSTR,
-      impliedValue, variance, blendedADR, blendedOcc,
-      purchasePrice, targetCapRate
-    };
+    return { slipRevenue, strRevenue, otherRev, totalEGR, mgmtFee, maintenance, totalOpex, expenseRatio, noi, capRate, grm, pricePerSlip, pricePerSTR, impliedValue, variance, blendedADR, blendedOcc, purchasePrice, targetCapRate };
   }, [u]);
 
   const copySummary = () => {
     const e = u.expenses;
-    const text = `
-RDM ASSETS — UNDERWRITING SUMMARY
-═══════════════════════════════════
-
-EFFECTIVE GROSS REVENUE (EGR)
-  Marina Slip Revenue:     ${formatCurrency(calc.slipRevenue)}
-  STR / Lodging Revenue:   ${formatCurrency(calc.strRevenue)}
-  Other Revenue:           ${formatCurrency(calc.otherRev)}
-  ─────────────────────────
-  Total EGR:               ${formatCurrency(calc.totalEGR)}
-
-OPERATING EXPENSES
-  Management Fee (${e.mgmtFeePct}%):   (${formatCurrency(calc.mgmtFee)})
-  Property Taxes:          (${formatCurrency(e.propertyTaxes)})
-  Insurance:               (${formatCurrency(e.insurance)})
-  Utilities:               (${formatCurrency(e.utilities)})
-  Maintenance:             (${formatCurrency(calc.maintenance)})
-  Payroll:                 (${formatCurrency(e.payroll)})
-  Marketing:               (${formatCurrency(e.marketing)})
-  Other:                   (${formatCurrency(e.otherOpex)})
-  ─────────────────────────
-  Total OpEx:              (${formatCurrency(calc.totalOpex)})
-  Expense Ratio:           ${formatPercent(calc.expenseRatio)}
-
-NET OPERATING INCOME (NOI): ${formatCurrency(calc.noi)}
-
-VALUATION ANALYSIS
-  Purchase Price:          ${formatCurrency(calc.purchasePrice)}
-  Cap Rate (at price):     ${formatPercent(calc.capRate)}
-  GRM:                     ${formatMultiple(calc.grm)}
-  Price per Slip:          ${formatCurrency(calc.pricePerSlip)}
-  Price per STR Unit:      ${formatCurrency(calc.pricePerSTR)}
-  Target Cap Rate:         ${formatPercent(calc.targetCapRate)}
-  Implied Value:           ${formatCurrency(calc.impliedValue)}
-  Variance to Ask:         ${calc.variance >= 0 ? '+' : ''}${formatCurrency(calc.variance)}
-`.trim();
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(`RDM ASSETS — UNDERWRITING SUMMARY\n${'='.repeat(40)}\n\nEFFECTIVE GROSS REVENUE\n  Marina Slips:    ${formatCurrency(calc.slipRevenue)}\n  STR/Lodging:     ${formatCurrency(calc.strRevenue)}\n  Other:           ${formatCurrency(calc.otherRev)}\n  Total EGR:       ${formatCurrency(calc.totalEGR)}\n\nOPERATING EXPENSES\n  Mgmt Fee (${e.mgmtFeePct}%): (${formatCurrency(calc.mgmtFee)})\n  Taxes:           (${formatCurrency(e.propertyTaxes)})\n  Insurance:       (${formatCurrency(e.insurance)})\n  Utilities:       (${formatCurrency(e.utilities)})\n  Maintenance:     (${formatCurrency(calc.maintenance)})\n  Payroll:         (${formatCurrency(e.payroll)})\n  Marketing:       (${formatCurrency(e.marketing)})\n  Other:           (${formatCurrency(e.otherOpex)})\n  Total OpEx:      (${formatCurrency(calc.totalOpex)})\n  Expense Ratio:   ${formatPercent(calc.expenseRatio)}\n\nNOI: ${formatCurrency(calc.noi)}\n\nVALUATION\n  Purchase Price:  ${formatCurrency(calc.purchasePrice)}\n  Cap Rate:        ${formatPercent(calc.capRate)}\n  GRM:             ${formatMultiple(calc.grm)}\n  Per Slip:        ${formatCurrency(calc.pricePerSlip)}\n  Per STR Unit:    ${formatCurrency(calc.pricePerSTR)}\n  Target Cap:      ${formatPercent(calc.targetCapRate)}\n  Implied Value:   ${formatCurrency(calc.impliedValue)}\n  Variance:        ${calc.variance >= 0 ? '+' : ''}${formatCurrency(calc.variance)}`);
   };
 
   return (
-    <div className="h-[calc(100vh-100px)] overflow-y-auto">
-      <div className="max-w-5xl mx-auto p-6 space-y-8">
+    <div className="h-[calc(100vh-108px)] overflow-y-auto">
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
 
-        {/* Reference Data Bar */}
+        {/* Reference bar */}
         {(parcelData || marketData) && !parcelData?.error && (
-          <div className="bg-navy-800 border border-navy-700 rounded-lg p-4">
-            <h3 className="text-[10px] text-slate-secondary uppercase tracking-wider mb-3">Property Reference Data</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {parcelData?.physical?.numunits && (
-                <RefItem label="Units (Assessor)" value={parcelData.physical.numunits} />
-              )}
-              {parcelData?.physical?.area_building && (
-                <RefItem label="Building Sq Ft" value={formatNumber(parcelData.physical.area_building)} />
-              )}
-              {parcelData?.physical?.ll_gisacre && (
-                <RefItem label="Acreage" value={`${parcelData.physical.ll_gisacre} ac`} />
-              )}
-              {parcelData?.physical?.yearbuilt && (
-                <RefItem label="Year Built" value={parcelData.physical.yearbuilt} />
-              )}
-              {parcelData?.physical?.year_built_effective_date && (
-                <RefItem label="Effective Year" value={parcelData.physical.year_built_effective_date} />
-              )}
-              {parcelData?.tax?.taxamt && (
-                <RefItem label="Annual Tax Bill" value={formatCurrency(parcelData.tax.taxamt)} highlight />
-              )}
-              {(marketData?.estimate?.projected_adr || marketData?.summary?.avg_daily_rate || marketData?.avg_daily_rate) && (
-                <RefItem label="Est. ADR (AirROI)" value={`$${marketData.estimate?.projected_adr || marketData.summary?.avg_daily_rate || marketData.avg_daily_rate}/night`} highlight />
-              )}
-              {(marketData?.estimate?.projected_occupancy || marketData?.summary?.avg_occupancy || marketData?.avg_occupancy) && (
-                <RefItem label="Est. Occ (AirROI)" value={formatPercent(marketData.estimate?.projected_occupancy || marketData.summary?.avg_occupancy || marketData.avg_occupancy)} highlight />
-              )}
-              {marketData?.estimate?.projected_annual_revenue && (
-                <RefItem label="Est. Annual Rev" value={formatCurrency(marketData.estimate.projected_annual_revenue)} highlight />
-              )}
-              {(marketData?.summary?.active_listings || marketData?.active_listings) && (
-                <RefItem label="Active Listings" value={formatNumber(marketData.summary?.active_listings || marketData.active_listings)} />
-              )}
+          <div className="bg-surface-2 rounded-xl p-4 border border-border shadow-card">
+            <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-3">Reference Data</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-2">
+              {parcelData?.physical?.numunits && <Ref label="Units" value={parcelData.physical.numunits} />}
+              {parcelData?.physical?.area_building && <Ref label="Building" value={`${formatNumber(parcelData.physical.area_building)} sf`} />}
+              {parcelData?.physical?.ll_gisacre && <Ref label="Acres" value={parcelData.physical.ll_gisacre} />}
+              {parcelData?.tax?.taxamt && <Ref label="Tax Bill" value={formatCurrency(parcelData.tax.taxamt)} accent />}
+              {(marketData?.estimate?.projected_adr || marketData?.avg_daily_rate) && <Ref label="Est ADR" value={`$${marketData.estimate?.projected_adr || marketData.summary?.avg_daily_rate || marketData.avg_daily_rate}/nt`} accent />}
+              {(marketData?.estimate?.projected_occupancy || marketData?.avg_occupancy) && <Ref label="Est Occ" value={formatPercent(marketData.estimate?.projected_occupancy || marketData.summary?.avg_occupancy || marketData.avg_occupancy)} accent />}
             </div>
           </div>
         )}
 
-        {/* Section A: Marina Slip Revenue */}
+        {/* Marina Slips */}
         <Section title="Marina Slip Revenue">
           {u.slipCategories.map((slip, i) => (
-            <div key={i} className="bg-navy-800 border border-navy-700 rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-secondary">Slip Category {i + 1}</span>
-                <button onClick={() => removeSlip(i)} className="text-red-400 hover:text-red-300 text-sm">×</button>
-              </div>
+            <Card key={i} onRemove={() => removeSlip(i)} label={`Slip ${i+1}`}>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <Input label="Slip Type" value={slip.label} onChange={v => updateSlip(i, 'label', v)} placeholder="e.g. Wet Slip 30ft" />
-                <NumInput label="Size (ft)" value={slip.size} onChange={v => updateSlip(i, 'size', Number(v))} />
-                <NumInput label="Count" value={slip.count} onChange={v => updateSlip(i, 'count', Number(v))} />
-                <CurrencyInput label="Monthly Rate" value={slip.monthlyRate} onChange={v => updateSlip(i, 'monthlyRate', Number(v))} />
-                <SliderInput label={`Occupancy ${slip.occupancy}%`} value={slip.occupancy} onChange={v => updateSlip(i, 'occupancy', Number(v))} />
+                <Inp label="Type" value={slip.label} onChange={v => updateSlip(i,'label',v)} ph="Wet Slip 30ft" />
+                <Num label="Size (ft)" value={slip.size} onChange={v => updateSlip(i,'size',Number(v))} />
+                <Num label="Count" value={slip.count} onChange={v => updateSlip(i,'count',Number(v))} />
+                <Cur label="Monthly Rate" value={slip.monthlyRate} onChange={v => updateSlip(i,'monthlyRate',Number(v))} />
+                <Slider label={`Occ ${slip.occupancy}%`} value={slip.occupancy} onChange={v => updateSlip(i,'occupancy',Number(v))} />
                 <div>
-                  <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">Seasonal</label>
+                  <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">Seasonal</label>
                   <div className="flex items-center gap-2">
-                    <Toggle value={slip.seasonal} onChange={v => updateSlip(i, 'seasonal', v)} />
-                    {slip.seasonal && (
-                      <NumInput label="" value={slip.activeMonths} onChange={v => updateSlip(i, 'activeMonths', Number(v))} placeholder="Months" small />
-                    )}
+                    <Toggle value={slip.seasonal} onChange={v => updateSlip(i,'seasonal',v)} />
+                    {slip.seasonal && <Num label="" value={slip.activeMonths} onChange={v => updateSlip(i,'activeMonths',Number(v))} ph="Mo" small />}
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
-          <button onClick={addSlip} className="text-sm text-gold hover:text-gold-light">+ Add Slip Category</button>
-          <SummaryCard label="Total Annual Slip Revenue" value={formatCurrency(calc.slipRevenue)} />
+          <AddBtn onClick={addSlip}>Add Slip Category</AddBtn>
+          <KPI label="Total Slip Revenue" value={formatCurrency(calc.slipRevenue)} />
         </Section>
 
-        {/* Section B: STR Revenue */}
-        <Section title="Short-Term Rental / Lodging Revenue">
+        {/* STR */}
+        <Section title="Short-Term Rental / Lodging">
           {u.strUnits.map((unit, i) => (
-            <div key={i} className="bg-navy-800 border border-navy-700 rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-secondary">Unit Type {i + 1}</span>
-                <button onClick={() => removeSTR(i)} className="text-red-400 hover:text-red-300 text-sm">×</button>
-              </div>
+            <Card key={i} onRemove={() => removeSTR(i)} label={`Unit ${i+1}`}>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                <Input label="Unit Type" value={unit.label} onChange={v => updateSTR(i, 'label', v)} placeholder="e.g. Lakefront Cabin" />
-                <NumInput label="Count" value={unit.count} onChange={v => updateSTR(i, 'count', Number(v))} />
-                <CurrencyInput label="ADR ($/night)" value={unit.adr} onChange={v => updateSTR(i, 'adr', Number(v))} />
-                <SliderInput label={`Occupancy ${unit.occupancy}%`} value={unit.occupancy} onChange={v => updateSTR(i, 'occupancy', Number(v))} />
-                <NumInput label="Avail. Nights/yr" value={unit.availableNights} onChange={v => updateSTR(i, 'availableNights', Number(v))} />
+                <Inp label="Type" value={unit.label} onChange={v => updateSTR(i,'label',v)} ph="Lakefront Cabin" />
+                <Num label="Count" value={unit.count} onChange={v => updateSTR(i,'count',Number(v))} />
+                <Cur label="ADR ($/night)" value={unit.adr} onChange={v => updateSTR(i,'adr',Number(v))} />
+                <Slider label={`Occ ${unit.occupancy}%`} value={unit.occupancy} onChange={v => updateSTR(i,'occupancy',Number(v))} />
+                <Num label="Nights/yr" value={unit.availableNights} onChange={v => updateSTR(i,'availableNights',Number(v))} />
               </div>
-            </div>
+            </Card>
           ))}
-          <button onClick={addSTR} className="text-sm text-gold hover:text-gold-light">+ Add Unit Type</button>
-          <div className="flex gap-4">
-            <SummaryCard label="Total Annual STR Revenue" value={formatCurrency(calc.strRevenue)} />
-            <MiniCard label="Blended ADR" value={`$${calc.blendedADR.toFixed(0)}/night`} />
-            <MiniCard label="Blended Occupancy" value={formatPercent(calc.blendedOcc)} />
+          <AddBtn onClick={addSTR}>Add Unit Type</AddBtn>
+          <div className="flex gap-3">
+            <KPI label="Total STR Revenue" value={formatCurrency(calc.strRevenue)} />
+            <Mini label="Blended ADR" value={`$${calc.blendedADR.toFixed(0)}/nt`} />
+            <Mini label="Blended Occ" value={formatPercent(calc.blendedOcc)} />
           </div>
         </Section>
 
-        {/* Section C: Other Revenue */}
+        {/* Other Revenue */}
         <Section title="Other Revenue">
           {u.otherRevenue.map((rev, i) => (
             <div key={i} className="flex items-end gap-3">
-              <Input label="Revenue Item" value={rev.label} onChange={v => updateOtherRev(i, 'label', v)} placeholder="e.g. Fuel dock" />
-              <CurrencyInput label="Annual Amount" value={rev.amount} onChange={v => updateOtherRev(i, 'amount', Number(v))} />
-              <button onClick={() => removeOtherRev(i)} className="text-red-400 hover:text-red-300 text-sm pb-2">×</button>
+              <Inp label="Item" value={rev.label} onChange={v => updateOtherRev(i,'label',v)} ph="Fuel dock" />
+              <Cur label="Annual" value={rev.amount} onChange={v => updateOtherRev(i,'amount',Number(v))} />
+              <button onClick={() => removeOtherRev(i)} className="text-text-tertiary hover:text-negative text-sm pb-2 transition-colors">x</button>
             </div>
           ))}
-          <button onClick={addOtherRev} className="text-sm text-gold hover:text-gold-light">+ Add Revenue Line</button>
+          <AddBtn onClick={addOtherRev}>Add Revenue Line</AddBtn>
         </Section>
 
-        {/* Section D: Operating Expenses */}
+        {/* Expenses */}
         <Section title="Operating Expenses">
-          <div className="bg-navy-800 border border-navy-700 rounded-lg p-5 space-y-4">
+          <div className="bg-surface-2 border border-border rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Toggle value={u.expenses.mgmtFeeEnabled} onChange={v => update('expenses.mgmtFeeEnabled', v)} />
-                <span className="text-sm text-slate-text">Include RDM Management Co. Fee</span>
+                <Toggle value={u.expenses.mgmtFeeEnabled} onChange={v => update('expenses.mgmtFeeEnabled',v)} />
+                <span className="text-sm text-text-primary">RDM Management Fee</span>
               </div>
               {u.expenses.mgmtFeeEnabled && (
                 <div className="flex items-center gap-2">
-                  <NumInput label="" value={u.expenses.mgmtFeePct} onChange={v => update('expenses.mgmtFeePct', Number(v))} small />
-                  <span className="text-sm text-slate-secondary">% of EGR</span>
-                  <span className="text-sm font-mono text-gold ml-2">{formatCurrency(calc.mgmtFee)}</span>
+                  <Num label="" value={u.expenses.mgmtFeePct} onChange={v => update('expenses.mgmtFeePct',Number(v))} small />
+                  <span className="text-xs text-text-tertiary">% of EGR</span>
+                  <span className="text-sm font-mono text-accent-text ml-2">{formatCurrency(calc.mgmtFee)}</span>
                 </div>
               )}
             </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <CurrencyInput label="Property Taxes (annual)" value={u.expenses.propertyTaxes} onChange={v => update('expenses.propertyTaxes', Number(v))} />
-              <CurrencyInput label="Insurance (annual)" value={u.expenses.insurance} onChange={v => update('expenses.insurance', Number(v))} />
-              <CurrencyInput label="Utilities (annual)" value={u.expenses.utilities} onChange={v => update('expenses.utilities', Number(v))} />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <Cur label="Property Taxes" value={u.expenses.propertyTaxes} onChange={v => update('expenses.propertyTaxes',Number(v))} />
+              <Cur label="Insurance" value={u.expenses.insurance} onChange={v => update('expenses.insurance',Number(v))} />
+              <Cur label="Utilities" value={u.expenses.utilities} onChange={v => update('expenses.utilities',Number(v))} />
               <div>
-                <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">Maintenance & Repairs</label>
+                <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">Maintenance</label>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={u.expenses.maintenanceMode}
-                    onChange={e => update('expenses.maintenanceMode', e.target.value)}
-                    className="bg-navy-900 border border-navy-700 rounded px-2 py-1.5 text-sm text-slate-text"
-                  >
-                    <option value="percent">% of Revenue</option>
-                    <option value="flat">Flat $</option>
+                  <select value={u.expenses.maintenanceMode} onChange={e => update('expenses.maintenanceMode', e.target.value)}
+                    className="bg-surface-3 border border-border rounded-lg px-2 py-1.5 text-xs text-text-secondary focus:outline-none">
+                    <option value="percent">%</option><option value="flat">$</option>
                   </select>
-                  {u.expenses.maintenanceMode === 'percent' ? (
-                    <NumInput label="" value={u.expenses.maintenancePct} onChange={v => update('expenses.maintenancePct', Number(v))} small />
-                  ) : (
-                    <CurrencyInput label="" value={u.expenses.maintenanceFlat} onChange={v => update('expenses.maintenanceFlat', Number(v))} />
-                  )}
+                  {u.expenses.maintenanceMode === 'percent'
+                    ? <Num label="" value={u.expenses.maintenancePct} onChange={v => update('expenses.maintenancePct',Number(v))} small />
+                    : <Cur label="" value={u.expenses.maintenanceFlat} onChange={v => update('expenses.maintenanceFlat',Number(v))} />}
                 </div>
               </div>
-              <CurrencyInput label="Payroll" value={u.expenses.payroll} onChange={v => update('expenses.payroll', Number(v))} />
-              <CurrencyInput label="Marketing" value={u.expenses.marketing} onChange={v => update('expenses.marketing', Number(v))} />
-              <CurrencyInput label="Other OpEx" value={u.expenses.otherOpex} onChange={v => update('expenses.otherOpex', Number(v))} />
+              <Cur label="Payroll" value={u.expenses.payroll} onChange={v => update('expenses.payroll',Number(v))} />
+              <Cur label="Marketing" value={u.expenses.marketing} onChange={v => update('expenses.marketing',Number(v))} />
+              <Cur label="Other OpEx" value={u.expenses.otherOpex} onChange={v => update('expenses.otherOpex',Number(v))} />
             </div>
           </div>
         </Section>
 
-        {/* Section E: Summary */}
-        <div className="bg-navy-800 border-2 border-gold/30 rounded-xl p-6 space-y-5">
+        {/* Summary */}
+        <div className="bg-gradient-subtle border border-accent/10 rounded-2xl p-6 space-y-5 shadow-glow">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gold">Underwriting Summary</h2>
-            <button onClick={copySummary} className="px-4 py-1.5 bg-gold/20 border border-gold/40 text-gold rounded text-xs hover:bg-gold/30 transition-colors">
+            <h2 className="text-base font-semibold text-text-primary">Underwriting Summary</h2>
+            <button onClick={copySummary} className="px-3.5 py-1.5 bg-accent/10 border border-accent/20 text-accent-text rounded-lg text-xs font-medium hover:bg-accent/20 transition-all">
               Copy Summary
             </button>
           </div>
 
-          {/* EGR */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Effective Gross Revenue (EGR)</h3>
-            <div className="space-y-1">
-              <SummaryLine label="Marina Slip Revenue" value={formatCurrency(calc.slipRevenue)} />
-              <SummaryLine label="STR / Lodging Revenue" value={formatCurrency(calc.strRevenue)} />
-              <SummaryLine label="Other Revenue" value={formatCurrency(calc.otherRev)} />
-              <div className="border-t border-navy-700 my-2" />
-              <SummaryLine label="Total EGR" value={formatCurrency(calc.totalEGR)} bold />
-            </div>
+            <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">Effective Gross Revenue</p>
+            <Row label="Marina Slips" value={formatCurrency(calc.slipRevenue)} />
+            <Row label="STR / Lodging" value={formatCurrency(calc.strRevenue)} />
+            <Row label="Other" value={formatCurrency(calc.otherRev)} />
+            <Hr /><Row label="Total EGR" value={formatCurrency(calc.totalEGR)} bold />
           </div>
 
-          {/* OpEx */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Operating Expenses</h3>
-            <div className="space-y-1">
-              {u.expenses.mgmtFeeEnabled && (
-                <SummaryLine label={`RDM Management Fee (${u.expenses.mgmtFeePct}%)`} value={`(${formatCurrency(calc.mgmtFee)})`} negative />
-              )}
-              <SummaryLine label="Property Taxes" value={`(${formatCurrency(u.expenses.propertyTaxes)})`} negative />
-              <SummaryLine label="Insurance" value={`(${formatCurrency(u.expenses.insurance)})`} negative />
-              <SummaryLine label="Utilities" value={`(${formatCurrency(u.expenses.utilities)})`} negative />
-              <SummaryLine label="Maintenance" value={`(${formatCurrency(calc.maintenance)})`} negative />
-              <SummaryLine label="Payroll" value={`(${formatCurrency(u.expenses.payroll)})`} negative />
-              <SummaryLine label="Marketing" value={`(${formatCurrency(u.expenses.marketing)})`} negative />
-              <SummaryLine label="Other" value={`(${formatCurrency(u.expenses.otherOpex)})`} negative />
-              <div className="border-t border-navy-700 my-2" />
-              <SummaryLine label="Total OpEx" value={`(${formatCurrency(calc.totalOpex)})`} bold negative />
-              <SummaryLine label="Expense Ratio" value={formatPercent(calc.expenseRatio)} dim />
-            </div>
+            <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-2">Operating Expenses</p>
+            {u.expenses.mgmtFeeEnabled && <Row label={`Mgmt Fee (${u.expenses.mgmtFeePct}%)`} value={`(${formatCurrency(calc.mgmtFee)})`} neg />}
+            <Row label="Taxes" value={`(${formatCurrency(u.expenses.propertyTaxes)})`} neg />
+            <Row label="Insurance" value={`(${formatCurrency(u.expenses.insurance)})`} neg />
+            <Row label="Utilities" value={`(${formatCurrency(u.expenses.utilities)})`} neg />
+            <Row label="Maintenance" value={`(${formatCurrency(calc.maintenance)})`} neg />
+            <Row label="Payroll" value={`(${formatCurrency(u.expenses.payroll)})`} neg />
+            <Row label="Marketing" value={`(${formatCurrency(u.expenses.marketing)})`} neg />
+            <Row label="Other" value={`(${formatCurrency(u.expenses.otherOpex)})`} neg />
+            <Hr /><Row label="Total OpEx" value={`(${formatCurrency(calc.totalOpex)})`} bold neg />
+            <Row label="Expense Ratio" value={formatPercent(calc.expenseRatio)} dim />
           </div>
 
-          {/* NOI */}
-          <div className="bg-navy-900 rounded-lg p-4 text-center">
-            <p className="text-xs text-slate-secondary uppercase tracking-wider mb-1">Net Operating Income (NOI)</p>
-            <p className={`text-3xl font-mono font-bold ${calc.noi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatCurrency(calc.noi)}
-            </p>
+          <div className="bg-surface-0/50 rounded-xl p-5 text-center border border-border/50">
+            <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">Net Operating Income</p>
+            <p className={`text-3xl font-mono font-bold tracking-tight ${calc.noi >= 0 ? 'text-positive' : 'text-negative'}`}>{formatCurrency(calc.noi)}</p>
           </div>
 
-          {/* Valuation */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Valuation Analysis</h3>
+            <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-3">Valuation</p>
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <CurrencyInput label="Purchase Price" value={u.purchasePrice} onChange={v => update('purchasePrice', Number(v))} />
-              <NumInput label="Target Cap Rate (%)" value={u.targetCapRate} onChange={v => update('targetCapRate', Number(v))} />
+              <Cur label="Purchase Price" value={u.purchasePrice} onChange={v => update('purchasePrice',Number(v))} />
+              <Num label="Target Cap (%)" value={u.targetCapRate} onChange={v => update('targetCapRate',Number(v))} />
             </div>
-            <div className="space-y-1">
-              <SummaryLine label="Cap Rate (at purchase price)" value={formatPercent(calc.capRate)} />
-              <SummaryLine label="GRM (Gross Revenue Multiple)" value={formatMultiple(calc.grm)} />
-              <SummaryLine label="Price per Slip" value={formatCurrency(calc.pricePerSlip)} />
-              <SummaryLine label="Price per STR Unit" value={formatCurrency(calc.pricePerSTR)} />
-              <div className="border-t border-navy-700 my-2" />
-              <SummaryLine label={`Implied Value at ${formatPercent(calc.targetCapRate)} Cap`} value={formatCurrency(calc.impliedValue)} bold />
-              <SummaryLine
-                label="Variance to Ask"
-                value={`${calc.variance >= 0 ? '+' : ''}${formatCurrency(calc.variance)}`}
-                color={calc.variance >= 0 ? 'text-green-400' : 'text-red-400'}
-                bold
-              />
-            </div>
+            <Row label="Cap Rate" value={formatPercent(calc.capRate)} />
+            <Row label="GRM" value={formatMultiple(calc.grm)} />
+            <Row label="Per Slip" value={formatCurrency(calc.pricePerSlip)} />
+            <Row label="Per STR Unit" value={formatCurrency(calc.pricePerSTR)} />
+            <Hr />
+            <Row label={`Value at ${formatPercent(calc.targetCapRate)} Cap`} value={formatCurrency(calc.impliedValue)} bold />
+            <Row label="Variance to Ask" value={`${calc.variance >= 0 ? '+' : ''}${formatCurrency(calc.variance)}`} color={calc.variance >= 0 ? 'text-positive' : 'text-negative'} bold />
           </div>
         </div>
 
@@ -429,124 +241,112 @@ VALUATION ANALYSIS
   );
 }
 
-// Sub-components
+// Primitives
 function Section({ title, children }) {
+  return <div className="space-y-3"><h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">{title}</h2>{children}</div>;
+}
+
+function Card({ children, onRemove, label }) {
   return (
-    <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-gold uppercase tracking-wider">{title}</h2>
+    <div className="bg-surface-2 border border-border rounded-xl p-4 space-y-3 shadow-card">
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] text-text-tertiary font-medium">{label}</span>
+        <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center rounded-md text-text-tertiary hover:text-negative hover:bg-negative/10 transition-all text-sm">x</button>
+      </div>
       {children}
     </div>
   );
 }
 
-function Input({ label, value, onChange, placeholder }) {
+function Inp({ label, value, onChange, ph }) {
   return (
     <div>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-navy-900 border border-navy-700 rounded px-3 py-1.5 text-sm text-slate-text focus:outline-none focus:border-gold"
-      />
+      {label && <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">{label}</label>}
+      <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={ph}
+        className="w-full bg-surface-3 border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:border-accent transition-colors" />
     </div>
   );
 }
 
-function NumInput({ label, value, onChange, placeholder, small }) {
+function Num({ label, value, onChange, ph, small }) {
   return (
     <div className={small ? 'w-16' : ''}>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
-      <input
-        type="number"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`bg-navy-900 border border-navy-700 rounded px-3 py-1.5 text-sm font-mono text-slate-text focus:outline-none focus:border-gold ${small ? 'w-16' : 'w-full'}`}
-      />
+      {label && <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">{label}</label>}
+      <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={ph}
+        className={`bg-surface-3 border border-border rounded-lg px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-accent transition-colors ${small ? 'w-16' : 'w-full'}`} />
     </div>
   );
 }
 
-function CurrencyInput({ label, value, onChange }) {
+function Cur({ label, value, onChange }) {
   return (
     <div>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
+      {label && <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">{label}</label>}
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-secondary">$</span>
-        <input
-          type="number"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="w-full bg-navy-900 border border-navy-700 rounded pl-7 pr-3 py-1.5 text-sm font-mono text-slate-text text-right focus:outline-none focus:border-gold"
-        />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-text-tertiary">$</span>
+        <input type="number" value={value} onChange={e => onChange(e.target.value)}
+          className="w-full bg-surface-3 border border-border rounded-lg pl-7 pr-3 py-2 text-sm font-mono text-text-primary text-right focus:outline-none focus:border-accent transition-colors" />
       </div>
     </div>
   );
 }
 
-function SliderInput({ label, value, onChange }) {
+function Slider({ label, value, onChange }) {
   return (
     <div>
-      <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>
-      <input
-        type="range"
-        min="0"
-        max="100"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full"
-      />
+      <label className="text-[10px] text-text-tertiary uppercase tracking-wider block mb-1.5">{label}</label>
+      <input type="range" min="0" max="100" value={value} onChange={e => onChange(e.target.value)} className="w-full" />
     </div>
   );
 }
 
 function Toggle({ value, onChange }) {
   return (
-    <button
-      onClick={() => onChange(!value)}
-      className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-gold' : 'bg-navy-700'}`}
-    >
-      <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${value ? 'left-5' : 'left-0.5'}`} />
+    <button onClick={() => onChange(!value)}
+      className={`relative w-10 h-[22px] rounded-full transition-all ${value ? 'bg-accent' : 'bg-surface-4'}`}>
+      <span className={`absolute top-[3px] w-4 h-4 rounded-full bg-white shadow-sm transition-all ${value ? 'left-[22px]' : 'left-[3px]'}`} />
     </button>
   );
 }
 
-function SummaryCard({ label, value }) {
+function AddBtn({ onClick, children }) {
+  return <button onClick={onClick} className="text-xs font-medium text-accent hover:text-accent-light transition-colors">+ {children}</button>;
+}
+
+function KPI({ label, value }) {
   return (
-    <div className="bg-navy-800 border border-gold/30 rounded-lg p-4 flex-1">
-      <p className="text-[10px] text-slate-secondary uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-xl font-mono font-bold text-gold">{value}</p>
+    <div className="bg-accent/5 border border-accent/15 rounded-xl p-4 flex-1">
+      <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-xl font-mono font-bold text-accent-text">{value}</p>
     </div>
   );
 }
 
-function MiniCard({ label, value }) {
+function Mini({ label, value }) {
   return (
-    <div className="bg-navy-800 border border-navy-700 rounded-lg p-3">
-      <p className="text-[10px] text-slate-secondary uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm font-mono text-slate-text">{value}</p>
+    <div className="bg-surface-2 border border-border rounded-xl p-3">
+      <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm font-mono text-text-primary">{value}</p>
     </div>
   );
 }
 
-function RefItem({ label, value, highlight }) {
+function Ref({ label, value, accent }) {
   return (
     <div>
-      <p className="text-[10px] text-slate-secondary uppercase tracking-wider">{label}</p>
-      <p className={`text-sm font-mono ${highlight ? 'text-gold' : 'text-slate-text'}`}>{value}</p>
+      <p className="text-[10px] text-text-tertiary uppercase tracking-wider">{label}</p>
+      <p className={`text-sm font-mono ${accent ? 'text-accent-text' : 'text-text-primary'}`}>{value}</p>
     </div>
   );
 }
 
-function SummaryLine({ label, value, bold, negative, dim, color }) {
+function Row({ label, value, bold, neg, dim, color }) {
   return (
-    <div className="flex justify-between items-center">
-      <span className={`text-sm ${dim ? 'text-slate-secondary' : 'text-slate-text'} ${bold ? 'font-semibold' : ''}`}>{label}</span>
-      <span className={`text-sm font-mono ${color || (negative ? 'text-red-300' : bold ? 'text-gold font-semibold' : 'text-slate-text')}`}>
-        {value}
-      </span>
+    <div className="flex justify-between items-center py-0.5">
+      <span className={`text-[13px] ${dim ? 'text-text-tertiary' : 'text-text-secondary'} ${bold ? 'font-medium text-text-primary' : ''}`}>{label}</span>
+      <span className={`text-[13px] font-mono ${color || (neg ? 'text-negative/80' : bold ? 'text-accent-text font-medium' : 'text-text-primary')}`}>{value}</span>
     </div>
   );
 }
+
+function Hr() { return <div className="border-t border-border/50 my-2" />; }
