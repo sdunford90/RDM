@@ -86,7 +86,7 @@ export default function App() {
   const handleSave = async (isAutoSave = false) => {
     if (!currentAsset?.address) return;
     try {
-      const saved = await saveAssetApi({ ...currentAsset, parcel: parcelData, market: marketData, underwriting, notes });
+      const saved = await saveAssetApi({ ...currentAsset, parcel: parcelData, market: marketData, underwriting, notes, adjacentParcels });
       setCurrentAsset(saved); setSaveStatus(isAutoSave ? 'auto' : 'manual'); setTimeout(() => setSaveStatus(null), 3000); loadSavedAssets();
     } catch (e) { setSaveStatus('error'); setTimeout(() => setSaveStatus(null), 3000); }
   };
@@ -97,6 +97,7 @@ export default function App() {
       const asset = await getAsset(id); if (!asset) return;
       setCurrentAsset(asset); setParcelData(asset.parcel || null); setMarketData(asset.market || null);
       setUnderwriting(asset.underwriting || defaultUnderwriting); setNotes(asset.notes || '');
+      setAdjacentParcels(asset.adjacentParcels || []);
       if (asset.parcel?.geometry) setParcelGeometry(asset.parcel.geometry);
       if (asset.lat && asset.lng) setMapCenter({ lat: asset.lat, lng: asset.lng });
       setActiveTab('overview');

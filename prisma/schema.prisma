@@ -16,9 +16,10 @@ model Asset {
   notes        String   @default("")
 
   // JSON blobs — Regrid parcel data, AirROI market data, underwriting model
-  parcel       Json?
-  market       Json?
-  underwriting Json?
+  parcel           Json?
+  market           Json?
+  underwriting     Json?
+  adjacentParcels  Json?
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
