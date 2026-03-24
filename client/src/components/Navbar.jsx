@@ -61,13 +61,24 @@ export default function Navbar({ savedAssets, onLoadAsset, onNewTarget, onSave, 
 
       {/* Right actions */}
       <div className="flex items-center gap-2">
-        {/* Save status — desktop only */}
-        <div className="hidden md:flex items-center gap-2">
-          {saveStatus === 'manual' && <span className="text-xs text-positive font-semibold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-positive" />Saved</span>}
-          {saveStatus === 'auto' && <span className="text-xs text-text-tertiary">Auto-saved</span>}
+        {/* Save — icon on mobile, full button on desktop */}
+        <div className="flex items-center gap-2">
+          {saveStatus === 'manual' && <span className="text-xs text-positive font-semibold hidden md:flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-positive" />Saved</span>}
+          {saveStatus === 'auto' && <span className="text-xs text-text-tertiary hidden md:block">Auto-saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-negative font-medium">Failed</span>}
+          {/* Mobile save: icon button with status dot */}
           <button onClick={onSave}
-            className="px-4 py-1.5 text-xs font-medium text-text-secondary bg-white hover:bg-surface-2 border border-border hover:border-border-hover rounded-xl shadow-soft transition-all">
+            className="relative md:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-border hover:bg-surface-2 shadow-soft transition-all"
+            title="Save">
+            {saveStatus === 'manual' && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-positive" />}
+            {saveStatus === 'error' && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-negative" />}
+            <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </button>
+          {/* Desktop save: text button */}
+          <button onClick={onSave}
+            className="hidden md:block px-4 py-1.5 text-xs font-medium text-text-secondary bg-white hover:bg-surface-2 border border-border hover:border-border-hover rounded-xl shadow-soft transition-all">
             Save
           </button>
         </div>
@@ -100,13 +111,6 @@ export default function Navbar({ savedAssets, onLoadAsset, onNewTarget, onSave, 
                 <div className="px-4 py-2 border-b border-border mb-1">
                   <p className="text-xs font-semibold text-text-primary truncate">{user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email}</p>
                   <p className="text-[10px] text-text-tertiary truncate">{user.email}</p>
-                </div>
-                {/* Mobile-only: Save & Load */}
-                <div className="md:hidden border-b border-border pb-1 mb-1">
-                  <button onClick={() => { onSave(); setMenuOpen(false); }}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors">
-                    Save current target
-                  </button>
                 </div>
                 <a href="/api/logout"
                   className="block px-4 py-2 text-xs font-medium text-negative hover:bg-red-50 transition-colors">

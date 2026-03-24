@@ -105,8 +105,8 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-108px)]">
-      {/* Left panel */}
-      <div className="lg:w-[42%] flex-1 lg:flex-none overflow-y-auto p-4 md:p-5 space-y-4 bg-white border-r border-border">
+      {/* Left panel — shows below map on mobile, left on desktop */}
+      <div className="lg:w-[42%] flex-1 lg:flex-none overflow-y-auto p-4 md:p-5 space-y-4 bg-white border-r border-border order-2 lg:order-1">
         <form onSubmit={handleSubmit} className="space-y-2.5">
           <div ref={geocoderContainer} className="w-full" />
           <div className="flex gap-2">
@@ -378,8 +378,8 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
         </div>
       </div>
 
-      {/* Map — fixed height on mobile, full height on desktop */}
-      <div className="lg:w-[58%] h-[280px] md:h-[360px] lg:h-full relative bg-surface-2 flex-shrink-0">
+      {/* Map — appears first on mobile (top), right panel on desktop */}
+      <div className="lg:w-[58%] h-[45vh] md:h-[400px] lg:h-full relative bg-surface-2 flex-shrink-0 order-1 lg:order-2">
         <div ref={mapContainer} className="w-full h-full" />
         {!mapboxToken && <Overlay>Configure MAPBOX_TOKEN to enable map</Overlay>}
         {mapboxToken && !mapboxgl.supported() && <Overlay>WebGL required — use a full browser tab</Overlay>}
