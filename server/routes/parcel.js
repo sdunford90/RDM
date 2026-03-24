@@ -12,7 +12,7 @@ function extractFromFields(fields, geometry) {
     improvement_value: fields.improvval || fields.assdimpval || 'N/A',
     zoning: fields.zoning_description || fields.zoning || 'N/A',
     legal_description: fields.legaldesc || 'N/A',
-    county: fields.county || fields.geoid || 'N/A',
+    county: fields.county || 'N/A',
     last_sale_date: fields.saledate || 'N/A',
     last_sale_price: fields.saleprice || 'N/A',
     flood_zone: fields.fema_flood_zone || 'N/A',
@@ -21,12 +21,42 @@ function extractFromFields(fields, geometry) {
   };
 }
 
-async function typeaheadLookup(query, token) {
-  const url = `https://app.regrid.com/api/v2/parcels/typeahead?query=${encodeURIComponent(query)}&token=${token}&limit=1`;
+// Haversine distance in miles between two lat/lng points
+function distanceMiles(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function typeaheadLookup(query, token, lat, lng) {
+  const url = `https://app.regrid.com/api/v2/parcels/typeahead?query=${encodeURIComponent(query)}&token=${token}&limit=10`;
   const r = await fetch(url);
   const data = await r.json();
   const features = data.parcel_centroids?.features || [];
-  return features.length > 0 ? features[0].properties.ll_uuid : null;
+
+  if (features.length === 0) return null;
+
+  // If we have coordinates, pick the closest result within 25 miles
+  if (lat && lng) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const f of features) {
+      const [fLng, fLat] = f.geometry.coordinates;
+      const dist = distanceMiles(lat, lng, fLat, fLng);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = f;
+      }
+    }
+    // Reject if the closest match is more than 25 miles away
+    if (bestDist > 25) return null;
+    return best?.properties?.ll_uuid || null;
+  }
+
+  return features[0].properties.ll_uuid;
 }
 
 async function fetchByUUID(uuid, token) {
@@ -51,9 +81,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Provide lat/lng or address' });
     }
 
-    // Use typeahead to find the parcel UUID, then fetch full record
-    const query = address || `${lat},${lng}`;
-    const uuid = await typeaheadLookup(query, token);
+    const uuid = await typeaheadLookup(address || '', token, lat, lng);
 
     if (!uuid) {
       return res.json({ error: 'No parcel data found for this location' });
