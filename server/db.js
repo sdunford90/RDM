@@ -67,7 +67,8 @@ async function listMarkets() {
     select: {
       id: true, name: true, lat: true, lng: true,
       adr: true, occupancy: true, revpar: true, monthlyRev: true,
-      listings: true, supplyGrowth: true, score: true, updatedAt: true
+      listings: true, supplyGrowth: true, score: true, updatedAt: true,
+      data: true
     },
     orderBy: { score: 'desc' }
   });

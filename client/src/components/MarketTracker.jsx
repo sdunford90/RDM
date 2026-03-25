@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
-import MarketDeepDive from './MarketDeepDive';
 
 function scoreColor(score) {
   if (score == null) return '#94a3b8';
@@ -235,18 +234,14 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
           </div>
         </div>
 
-        {/* Deep Dive panel */}
+        {/* Deep Dive panel — displays pre-saved 60-mo data */}
         {rightPanel === 'deepdive' && (
-          <div className="flex-1 overflow-auto bg-surface-1">
+          <div className="flex-1 overflow-auto bg-surface-1 p-4">
             {selectedMarket ? (
-              <MarketDeepDive
-                lat={selectedMarket.lat}
-                lng={selectedMarket.lng}
-                marketData={selectedMarket.data || null}
-              />
+              <DeepDivePanel market={selectedMarket} />
             ) : (
               <div className="flex items-center justify-center h-full text-sm text-text-tertiary">
-                Select a market from the leaderboard to load its 60-month deep dive
+                Select a market from the leaderboard
               </div>
             )}
           </div>
@@ -261,6 +256,92 @@ function Stat({ label, value }) {
     <div className="bg-white rounded-lg px-2.5 py-1.5 border border-border/50">
       <p className="text-[9px] text-text-tertiary uppercase tracking-wider">{label}</p>
       <p className="text-xs font-mono font-medium text-text-primary">{value}</p>
+    </div>
+  );
+}
+
+function DDStat({ label, value, color }) {
+  return (
+    <div className="bg-white rounded-xl px-3 py-2.5 border border-border/50 shadow-sm">
+      <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">{label}</p>
+      <p className={`text-sm font-mono font-bold ${color || 'text-text-primary'}`}>{value ?? '—'}</p>
+    </div>
+  );
+}
+
+function DeepDivePanel({ market }) {
+  const dd = market?.data?.deepDive;
+  const metrics = dd?.allMetrics;
+  const pacing = dd?.pacing;
+
+  if (!dd || !metrics) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center">
+          <svg className="w-6 h-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-text-primary mb-1">No deep dive data yet</p>
+          <p className="text-xs text-text-tertiary max-w-xs">Analyze a property in this market, load the 60-month deep dive on the Overview tab, then save the target. The data will appear here.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const ttmAdr = metrics.adr?.ttm_average;
+  const ttmOcc = metrics.occupancy?.ttm_average;
+  const ttmRevpar = metrics.revpar?.ttm_average;
+  const ttmRevenue = metrics.revenue?.ttm_average;
+  const supply = metrics.supply?.current;
+  const pacingFill = pacing?.pace_occupancy;
+  const pacingYoy = pacing?.yoy_change;
+  const updatedLabel = dd.market?.market_name || dd.market?.locality || market.name;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold text-text-primary mb-0.5">{updatedLabel}</p>
+        <p className="text-[10px] text-text-tertiary">60-month trailing metrics · saved from last deep dive</p>
+      </div>
+
+      <div>
+        <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">TTM Performance</p>
+        <div className="grid grid-cols-2 gap-2">
+          <DDStat label="TTM ADR" value={ttmAdr ? formatCurrency(ttmAdr) : null} color="text-violet-600" />
+          <DDStat label="TTM Occupancy" value={ttmOcc ? formatPercent(ttmOcc) : null} color="text-pink-600" />
+          <DDStat label="TTM RevPAR" value={ttmRevpar ? formatCurrency(ttmRevpar) : null} color="text-sky-600" />
+          <DDStat label="TTM Revenue/Mo" value={ttmRevenue ? formatCurrency(ttmRevenue) : null} color="text-emerald-600" />
+          <DDStat label="Active Supply" value={supply ? formatNumber(Math.round(supply)) : null} />
+        </div>
+      </div>
+
+      {pacing && (
+        <div>
+          <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Forward Pacing</p>
+          <div className="grid grid-cols-2 gap-2">
+            <DDStat
+              label="Nights Booked"
+              value={pacingFill != null ? `${Math.round(pacingFill)}%` : null}
+              color={pacingFill >= 60 ? 'text-emerald-600' : pacingFill >= 40 ? 'text-amber-600' : 'text-red-500'}
+            />
+            <DDStat
+              label="Pacing YoY"
+              value={pacingYoy != null ? `${pacingYoy >= 0 ? '+' : ''}${Math.round(pacingYoy)}%` : null}
+              color={pacingYoy >= 0 ? 'text-emerald-600' : 'text-red-500'}
+            />
+          </div>
+          {pacingFill != null && (
+            <div className="mt-2 rounded-lg bg-white border border-border/50 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, pacingFill)}%`, backgroundColor: pacingFill >= 60 ? '#10b981' : pacingFill >= 40 ? '#f59e0b' : '#ef4444' }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -179,6 +179,24 @@ export default function App() {
 
   const handleDeepDiveLoad = (deepDive) => {
     setMarketData(prev => prev ? { ...prev, deepDive } : prev);
+
+    // Persist deep dive into the market DB record so Markets tab can display it
+    if (!mapCenter) return;
+    const dd = deepDive?.market;
+    const marketName = dd?.market_name || dd?.locality || `${mapCenter.lat.toFixed(2)}, ${mapCenter.lng.toFixed(2)}`;
+    const summary = marketData?.summary || {};
+    saveMarketData({
+      name: marketName,
+      lat: mapCenter.lat,
+      lng: mapCenter.lng,
+      adr: summary.adr || marketData?.estimate?.projected_adr || null,
+      occupancy: summary.occupancy || marketData?.estimate?.projected_occupancy || null,
+      revpar: summary.revpar || null,
+      monthlyRev: summary.revenue || (marketData?.estimate?.projected_annual_revenue ? marketData.estimate.projected_annual_revenue / 12 : null),
+      listings: summary.active_listings || null,
+      supplyGrowth: null,
+      data: { ...(marketData || {}), deepDive }
+    }).then(() => loadMarkets()).catch(e => console.warn('Deep dive market save failed:', e));
   };
 
   const handleStrConfigChange = (cfg) => { setStrConfig(cfg); };
