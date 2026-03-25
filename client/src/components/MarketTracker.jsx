@@ -1,6 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
+import { Line, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const chartBase = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: { backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1, titleColor: '#0f172a', bodyColor: '#475569', padding: 10, cornerRadius: 10 }
+  },
+  scales: {
+    y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+    x: { ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 }, grid: { display: false } }
+  }
+};
 
 function scoreColor(score) {
   if (score == null) return '#94a3b8';
@@ -322,9 +339,11 @@ function DDStat({ label, value, color }) {
 }
 
 function DeepDivePanel({ market }) {
+  const [activeMetric, setActiveMetric] = useState('adr');
   const dd = market?.data?.deepDive;
   const metrics = dd?.allMetrics;
   const pacing = dd?.pacing;
+  const estimate = dd?.estimate;
 
   if (!dd || !metrics) {
     return (
@@ -342,48 +361,173 @@ function DeepDivePanel({ market }) {
     );
   }
 
-  const ttmAdr = metrics.adr?.ttm_average;
-  const ttmOcc = metrics.occupancy?.ttm_average;
-  const ttmRevpar = metrics.revpar?.ttm_average;
-  const ttmRevenue = metrics.revenue?.ttm_average;
-  const supply = metrics.supply?.current;
+  const marketLabel = dd.market?.market_name || dd.market?.locality || market.name;
+
+  const METRIC_TABS = [
+    { id: 'adr',       label: 'ADR',       color: '#7c3aed', key: 'adr' },
+    { id: 'occupancy', label: 'Occupancy',  color: '#ec4899', key: 'occupancy' },
+    { id: 'revpar',    label: 'RevPAR',     color: '#0ea5e9', key: 'revpar' },
+    { id: 'revenue',   label: 'Revenue',    color: '#10b981', key: 'revenue' },
+    { id: 'supply',    label: 'Supply',     color: '#f97316', key: 'supply' },
+  ];
+
+  const getTimeSeries = (key) => {
+    const d = metrics[key] || metrics.metrics?.[key];
+    if (!d) return null;
+    return d.monthly || d.time_series || d.data || (Array.isArray(d) ? d : null);
+  };
+
+  const extractTTM = (key, field) => {
+    const d = metrics[key] || metrics.metrics?.[key];
+    if (!d) return null;
+    return d[field] ?? d.ttm?.[field] ?? null;
+  };
+
+  const activeTab = METRIC_TABS.find(t => t.id === activeMetric);
+  const series = getTimeSeries(activeMetric);
+  const color = activeTab?.color || '#7c3aed';
+
+  const summaryStats = [
+    { label: 'TTM ADR',     value: extractTTM('adr', 'ttm_average'),       fmt: v => formatCurrency(v),                 color: 'text-violet-600' },
+    { label: 'TTM Occ',     value: extractTTM('occupancy', 'ttm_average'),  fmt: v => formatPercent(v < 1 ? v * 100 : v), color: 'text-pink-600' },
+    { label: 'TTM RevPAR',  value: extractTTM('revpar', 'ttm_average'),     fmt: v => formatCurrency(v),                 color: 'text-sky-600' },
+    { label: 'TTM Rev/Mo',  value: extractTTM('revenue', 'ttm_average'),    fmt: v => formatCurrency(v),                 color: 'text-emerald-600' },
+    { label: 'ADR YoY',     value: extractTTM('adr', 'yoy_change'),         fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`, color: v => v >= 0 ? 'text-emerald-600' : 'text-red-500' },
+    { label: 'Occ YoY',     value: extractTTM('occupancy', 'yoy_change'),   fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`, color: v => v >= 0 ? 'text-emerald-600' : 'text-red-500' },
+    { label: 'Supply',      value: extractTTM('supply', 'current') || extractTTM('active_listings', 'current'), fmt: v => formatNumber(Math.round(v)) },
+    { label: 'Supply YoY',  value: extractTTM('supply', 'yoy_growth') || extractTTM('active_listings', 'yoy_growth'), fmt: v => `${v >= 0 ? '+' : ''}${formatPercent(v)}`, color: v => v >= 0 ? 'text-red-500' : 'text-emerald-600' },
+  ].filter(s => s.value != null);
+
   const pacingFill = pacing?.pace_occupancy;
   const pacingYoy = pacing?.yoy_change;
-  const label = dd.market?.market_name || dd.market?.locality || market.name;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Header */}
       <div>
-        <p className="text-xs font-semibold text-text-primary mb-0.5">{label}</p>
-        <p className="text-[10px] text-text-tertiary">60-month trailing · saved from last deep dive</p>
+        <p className="text-sm font-semibold text-text-primary">{marketLabel}</p>
+        <p className="text-[10px] text-text-tertiary">60-month history · saved from last deep dive</p>
       </div>
-      <div>
-        <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">TTM Performance</p>
-        <div className="grid grid-cols-2 gap-2">
-          <DDStat label="TTM ADR" value={ttmAdr ? formatCurrency(ttmAdr) : null} color="text-violet-600" />
-          <DDStat label="TTM Occupancy" value={ttmOcc ? formatPercent(ttmOcc) : null} color="text-pink-600" />
-          <DDStat label="TTM RevPAR" value={ttmRevpar ? formatCurrency(ttmRevpar) : null} color="text-sky-600" />
-          <DDStat label="TTM Rev/Mo" value={ttmRevenue ? formatCurrency(ttmRevenue) : null} color="text-emerald-600" />
-          {supply != null && <DDStat label="Active Supply" value={formatNumber(Math.round(supply))} />}
+
+      {/* Summary stats grid */}
+      {summaryStats.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {summaryStats.map((s, i) => {
+            const colorClass = typeof s.color === 'function' ? s.color(s.value) : (s.color || 'text-text-primary');
+            return (
+              <div key={i} className="bg-white rounded-xl px-3 py-2.5 border border-border/50 shadow-sm">
+                <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">{s.label}</p>
+                <p className={`text-sm font-mono font-bold ${colorClass}`}>{s.fmt(s.value)}</p>
+              </div>
+            );
+          })}
         </div>
-      </div>
-      {pacing && (
-        <div>
-          <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Forward Pacing</p>
-          <div className="grid grid-cols-2 gap-2">
-            <DDStat
-              label="Nights Booked"
-              value={pacingFill != null ? `${Math.round(pacingFill)}%` : null}
-              color={pacingFill >= 60 ? 'text-emerald-600' : pacingFill >= 40 ? 'text-amber-600' : 'text-red-500'}
-            />
-            <DDStat
-              label="Pacing YoY"
-              value={pacingYoy != null ? `${pacingYoy >= 0 ? '+' : ''}${Math.round(pacingYoy)}%` : null}
-              color={pacingYoy >= 0 ? 'text-emerald-600' : 'text-red-500'}
+      )}
+
+      {/* Metric chart tabs */}
+      <div className="bg-white rounded-2xl border border-border shadow-soft p-4 space-y-3">
+        <div className="flex flex-wrap gap-1">
+          {METRIC_TABS.map(tab => (
+            <button key={tab.id} onClick={() => setActiveMetric(tab.id)}
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${activeMetric === tab.id ? 'text-white shadow-sm' : 'text-text-tertiary hover:bg-surface-1'}`}
+              style={activeMetric === tab.id ? { background: tab.color } : {}}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {series && series.length > 0 ? (
+          <div className="h-52">
+            <Line
+              data={{
+                labels: series.map((d, i) => d.month || d.date || d.label || MONTHS[i % 12]),
+                datasets: [{
+                  data: series.map(d => d.value || d.rate || d.occupancy || d.revenue || d.count || d.revpar || (typeof d === 'number' ? d : 0)),
+                  borderColor: color,
+                  backgroundColor: `${color}15`,
+                  fill: true,
+                  tension: 0.3,
+                  pointRadius: series.length > 24 ? 1 : 3,
+                  pointBackgroundColor: color,
+                  pointBorderColor: '#fff',
+                  pointBorderWidth: 1.5,
+                }]
+              }}
+              options={{
+                ...chartBase,
+                plugins: {
+                  ...chartBase.plugins,
+                  title: { display: true, text: `${activeTab?.label} — 60-Month History`, color: '#94a3b8', font: { size: 10, weight: '600' } }
+                }
+              }}
             />
           </div>
+        ) : (
+          <div className="h-24 flex items-center justify-center text-xs text-text-tertiary bg-surface-1 rounded-xl">
+            No time-series data for {activeTab?.label}
+          </div>
+        )}
+      </div>
+
+      {/* Projected monthly revenue */}
+      {estimate?.monthly_revenue_breakdown && Array.isArray(estimate.monthly_revenue_breakdown) && (
+        <div className="bg-white rounded-2xl border border-border shadow-soft p-4">
+          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-3">Projected Monthly Revenue</p>
+          <div className="h-44">
+            <Bar
+              data={{
+                labels: MONTHS.slice(0, estimate.monthly_revenue_breakdown.length),
+                datasets: [{
+                  data: estimate.monthly_revenue_breakdown.map(d => d.revenue || d.value || d),
+                  backgroundColor: 'rgba(16,185,129,0.2)',
+                  hoverBackgroundColor: 'rgba(16,185,129,0.4)',
+                  borderColor: '#10b981',
+                  borderWidth: 1.5,
+                  borderRadius: 6
+                }]
+              }}
+              options={chartBase}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Forward pacing */}
+      {pacing && (
+        <div className="bg-white rounded-2xl border border-sky-200 shadow-soft p-4 space-y-3">
+          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Forward Pacing</p>
+          <div className="grid grid-cols-2 gap-2">
+            {pacingFill != null && (
+              <div className="bg-surface-1 rounded-xl px-3 py-2.5">
+                <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">Avg Fill Rate</p>
+                <p className={`text-sm font-mono font-bold ${pacingFill >= 60 ? 'text-emerald-600' : pacingFill >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                  {Math.round(pacingFill)}% booked
+                </p>
+              </div>
+            )}
+            {pacingYoy != null && (
+              <div className="bg-surface-1 rounded-xl px-3 py-2.5">
+                <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">vs Last Year</p>
+                <p className={`text-sm font-mono font-bold ${pacingYoy >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {pacingYoy >= 0 ? '+' : ''}{Math.round(pacingYoy)}%
+                </p>
+              </div>
+            )}
+            {pacing.peak_booking_rate != null && (
+              <div className="bg-surface-1 rounded-xl px-3 py-2.5">
+                <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">Peak Fill</p>
+                <p className="text-sm font-mono font-bold text-violet-600">{formatPercent(pacing.peak_booking_rate)}</p>
+              </div>
+            )}
+            {pacing.avg_booked_rate != null && (
+              <div className="bg-surface-1 rounded-xl px-3 py-2.5">
+                <p className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">Booked Rate</p>
+                <p className="text-sm font-mono font-bold text-emerald-600">${pacing.avg_booked_rate}/nt</p>
+              </div>
+            )}
+          </div>
           {pacingFill != null && (
-            <div className="mt-2 h-1.5 rounded-full bg-white border border-border/50 overflow-hidden">
+            <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
               <div className="h-full rounded-full transition-all"
                 style={{ width: `${Math.min(100, pacingFill)}%`, backgroundColor: pacingFill >= 60 ? '#10b981' : pacingFill >= 40 ? '#f59e0b' : '#ef4444' }} />
             </div>
