@@ -26,6 +26,7 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
   const [sortCol, setSortCol] = useState('score');
   const [sortDir, setSortDir] = useState('desc');
   const [rightPanel, setRightPanel] = useState('map');
+  const [mobileTab, setMobileTab] = useState('markets');
 
   const sorted = [...markets].sort((a, b) => {
     const va = a[sortCol] ?? -Infinity;
@@ -39,6 +40,11 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
   };
 
   const selectedMarket = markets.find(m => m.id === selectedId);
+
+  const handleSelectMarket = (id) => {
+    setSelectedId(id);
+    setMobileTab('detail');
+  };
 
   // Map setup
   useEffect(() => {
@@ -55,55 +61,29 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
 
     map.on('load', () => {
       if (markets.length === 0) return;
-
       const features = markets.map(m => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [m.lng, m.lat] },
-        properties: {
-          id: m.id,
-          name: m.name,
-          score: m.score ?? 0,
-          color: scoreColor(m.score),
-          adr: m.adr,
-          occupancy: m.occupancy,
-          revpar: m.revpar,
-          listings: m.listings
-        }
+        properties: { id: m.id, name: m.name, score: m.score ?? 0, color: scoreColor(m.score) }
       }));
-
-      map.addSource('markets', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features }
-      });
-
+      map.addSource('markets', { type: 'geojson', data: { type: 'FeatureCollection', features } });
       map.addLayer({
         id: 'market-circles', type: 'circle', source: 'markets',
         paint: {
           'circle-color': ['get', 'color'],
           'circle-radius': ['interpolate', ['linear'], ['get', 'score'], 0, 8, 50, 12, 100, 18],
-          'circle-opacity': 0.8,
-          'circle-stroke-width': 2.5,
-          'circle-stroke-color': '#fff'
+          'circle-opacity': 0.8, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#fff'
         }
       });
-
       map.addLayer({
         id: 'market-labels', type: 'symbol', source: 'markets',
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-size': 10,
-          'text-offset': [0, 1.8],
-          'text-anchor': 'top'
-        },
+        layout: { 'text-field': ['get', 'name'], 'text-size': 10, 'text-offset': [0, 1.8], 'text-anchor': 'top' },
         paint: { 'text-color': '#374151', 'text-halo-color': '#fff', 'text-halo-width': 1 }
       });
-
       map.on('click', 'market-circles', (e) => {
         if (!e.features?.length) return;
-        const id = e.features[0].properties.id;
-        setSelectedId(id);
+        setSelectedId(e.features[0].properties.id);
       });
-
       map.on('mouseenter', 'market-circles', () => map.getCanvas().style.cursor = 'pointer');
       map.on('mouseleave', 'market-circles', () => map.getCanvas().style.cursor = '');
     });
@@ -112,7 +92,6 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
     return () => { if (mapRef.current) { try { mapRef.current.remove(); } catch (_) {} mapRef.current = null; } };
   }, [mapboxToken, markets]);
 
-  // Fly to selected market
   useEffect(() => {
     if (!selectedMarket || !mapRef.current) return;
     mapRef.current.flyTo({ center: [selectedMarket.lng, selectedMarket.lat], zoom: 8, duration: 1500 });
@@ -120,7 +99,7 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
 
   if (markets.length === 0) {
     return (
-      <div className="h-[calc(100vh-108px)] flex items-center justify-center">
+      <div className="h-[calc(100vh-108px)] flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 mx-auto mb-4 bg-emerald-50 rounded-2xl flex items-center justify-center">
             <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -136,7 +115,7 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
 
   const COLS = [
     { key: 'rank', label: '#', w: 'w-8' },
-    { key: 'name', label: 'Market', w: 'min-w-[140px]' },
+    { key: 'name', label: 'Market', w: 'min-w-[120px]' },
     { key: 'score', label: 'Score', w: 'w-16' },
     { key: 'adr', label: 'ADR', w: 'w-20', fmt: v => v ? formatCurrency(v) : '—' },
     { key: 'occupancy', label: 'Occ %', w: 'w-16', fmt: v => v ? formatPercent(v) : '—' },
@@ -144,11 +123,29 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
     { key: 'listings', label: 'Listings', w: 'w-16', fmt: v => v ? formatNumber(v) : '—' },
   ];
 
+  const MOBILE_TABS = [
+    { id: 'markets', label: 'Markets' },
+    { id: 'detail', label: 'Detail' },
+    { id: 'map', label: 'Map' },
+    { id: 'deepdive', label: 'Deep Dive' },
+  ];
+
   return (
-    <div className="h-[calc(100vh-108px)] flex">
-      {/* Leaderboard */}
-      <div className="w-[420px] flex-shrink-0 flex flex-col border-r border-border bg-white">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="h-[calc(100vh-108px)] flex flex-col lg:flex-row">
+
+      {/* ── Mobile tab bar ── */}
+      <div className="lg:hidden flex border-b border-border bg-white shrink-0 overflow-x-auto">
+        {MOBILE_TABS.map(t => (
+          <button key={t.id} onClick={() => setMobileTab(t.id)}
+            className={`flex-1 min-w-[72px] py-2.5 text-[11px] font-semibold whitespace-nowrap transition-all border-b-2 ${mobileTab === t.id ? 'border-violet-500 text-violet-700' : 'border-transparent text-text-tertiary'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── LEFT: Leaderboard (desktop always visible; mobile "markets" tab) ── */}
+      <div className={`lg:w-[400px] lg:flex-shrink-0 flex flex-col border-r border-border bg-white lg:flex ${mobileTab === 'markets' ? 'flex' : 'hidden'} flex-1 lg:flex-none`}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h2 className="text-sm font-semibold text-text-primary">Market Leaderboard</h2>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-text-tertiary">{markets.length} markets</span>
@@ -156,15 +153,16 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
           </div>
         </div>
 
+        {/* Desktop: table; Mobile: cards */}
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-xs">
+          {/* Desktop table */}
+          <table className="hidden lg:table w-full text-xs">
             <thead className="sticky top-0 bg-white border-b border-border z-10">
               <tr>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => c.key !== 'rank' && handleSort(c.key)}
                     className={`px-3 py-2 text-left text-[10px] font-semibold text-text-tertiary uppercase tracking-wider ${c.w} ${c.key !== 'rank' ? 'cursor-pointer hover:text-text-primary' : ''}`}>
-                    {c.label}
-                    {sortCol === c.key && <span className="ml-0.5">{sortDir === 'desc' ? '\u2193' : '\u2191'}</span>}
+                    {c.label}{sortCol === c.key && <span className="ml-0.5">{sortDir === 'desc' ? '↓' : '↑'}</span>}
                   </th>
                 ))}
               </tr>
@@ -174,7 +172,7 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
                 <tr key={m.id} onClick={() => setSelectedId(m.id)}
                   className={`border-b border-border/30 cursor-pointer transition-all hover:bg-violet-50/50 ${selectedId === m.id ? 'bg-violet-50' : ''}`}>
                   <td className="px-3 py-2 text-text-tertiary font-mono">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium text-text-primary truncate max-w-[140px]">{m.name}</td>
+                  <td className="px-3 py-2 font-medium text-text-primary truncate max-w-[120px]">{m.name}</td>
                   <td className="px-3 py-2">{scoreBadge(m.score)}</td>
                   <td className="px-3 py-2 font-mono">{m.adr ? formatCurrency(m.adr) : '—'}</td>
                   <td className="px-3 py-2 font-mono">{m.occupancy ? formatPercent(m.occupancy) : '—'}</td>
@@ -184,11 +182,32 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
               ))}
             </tbody>
           </table>
+
+          {/* Mobile cards */}
+          <div className="lg:hidden divide-y divide-border/40">
+            {sorted.map((m, i) => (
+              <button key={m.id} onClick={() => handleSelectMarket(m.id)}
+                className={`w-full text-left px-4 py-3 transition-all ${selectedId === m.id ? 'bg-violet-50' : 'hover:bg-surface-1'}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-text-tertiary font-mono w-5">{i + 1}</span>
+                    <span className="text-sm font-semibold text-text-primary">{m.name}</span>
+                  </div>
+                  {scoreBadge(m.score)}
+                </div>
+                <div className="flex items-center gap-4 ml-7 text-[11px] text-text-secondary font-mono">
+                  {m.adr && <span>ADR {formatCurrency(m.adr)}</span>}
+                  {m.occupancy && <span>Occ {formatPercent(m.occupancy)}</span>}
+                  {m.revpar && <span>RevPAR {formatCurrency(m.revpar)}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Selected market detail */}
+        {/* Desktop: selected market detail */}
         {selectedMarket && (
-          <div className="border-t border-border p-4 bg-surface-1 space-y-2">
+          <div className="hidden lg:block border-t border-border p-4 bg-surface-1 space-y-2 shrink-0">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">{selectedMarket.name}</h3>
               {scoreBadge(selectedMarket.score)}
@@ -206,10 +225,43 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
         )}
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Tab bar */}
-        <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-white shrink-0">
+      {/* ── Mobile: Detail tab ── */}
+      {mobileTab === 'detail' && (
+        <div className="lg:hidden flex-1 overflow-auto bg-white">
+          {selectedMarket ? (
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-text-primary">{selectedMarket.name}</h3>
+                  <p className="text-[10px] text-text-tertiary">Last updated: {new Date(selectedMarket.updatedAt).toLocaleDateString()}</p>
+                </div>
+                {scoreBadge(selectedMarket.score)}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Stat label="ADR" value={selectedMarket.adr ? formatCurrency(selectedMarket.adr) : '—'} />
+                <Stat label="Occupancy" value={selectedMarket.occupancy ? formatPercent(selectedMarket.occupancy) : '—'} />
+                <Stat label="RevPAR" value={selectedMarket.revpar ? formatCurrency(selectedMarket.revpar) : '—'} />
+                <Stat label="Monthly Rev" value={selectedMarket.monthlyRev ? formatCurrency(selectedMarket.monthlyRev) : '—'} />
+                <Stat label="Active Listings" value={selectedMarket.listings ? formatNumber(selectedMarket.listings) : '—'} />
+                <Stat label="Supply Growth" value={selectedMarket.supplyGrowth != null ? formatPercent(selectedMarket.supplyGrowth) : '—'} />
+              </div>
+              <div className="pt-2 border-t border-border">
+                <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-3">60-Month Deep Dive</p>
+                <DeepDivePanel market={selectedMarket} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-text-tertiary">
+              Tap a market from the Markets tab
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── RIGHT: Map + Deep Dive (desktop always visible; mobile "map"/"deepdive" tabs) ── */}
+      <div className={`flex-1 flex flex-col min-w-0 lg:flex ${mobileTab === 'map' || mobileTab === 'deepdive' ? 'flex' : 'hidden'}`}>
+        {/* Desktop tab bar */}
+        <div className="hidden lg:flex items-center gap-1 px-3 py-2 border-b border-border bg-white shrink-0">
           {[{ id: 'map', label: 'Map' }, { id: 'deepdive', label: '60-Mo Deep Dive' }].map(t => (
             <button key={t.id} onClick={() => setRightPanel(t.id)}
               className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${rightPanel === t.id ? 'bg-violet-100 text-violet-700' : 'text-text-tertiary hover:text-text-primary hover:bg-surface-1'}`}>
@@ -221,8 +273,8 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
           )}
         </div>
 
-        {/* Map (always rendered to preserve state, hidden when deep dive is active) */}
-        <div className={`flex-1 relative ${rightPanel === 'map' ? 'block' : 'hidden'}`}>
+        {/* Map — always rendered, hidden on deepdive */}
+        <div className={`flex-1 relative ${(rightPanel === 'map' && mobileTab !== 'deepdive') || mobileTab === 'map' ? 'block' : 'hidden'}`}>
           <div ref={mapContainer} className="w-full h-full" />
           <div className="absolute top-3 right-14 bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-card text-[10px] space-y-1">
             {[['70+', '#10b981', 'Strong'], ['50-70', '#f59e0b', 'Moderate'], ['< 50', '#ef4444', 'Weak']].map(([range, color, label]) => (
@@ -234,14 +286,14 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
           </div>
         </div>
 
-        {/* Deep Dive panel — displays pre-saved 60-mo data */}
-        {rightPanel === 'deepdive' && (
+        {/* Deep Dive panel */}
+        {(rightPanel === 'deepdive' || mobileTab === 'deepdive') && (
           <div className="flex-1 overflow-auto bg-surface-1 p-4">
             {selectedMarket ? (
               <DeepDivePanel market={selectedMarket} />
             ) : (
               <div className="flex items-center justify-center h-full text-sm text-text-tertiary">
-                Select a market from the leaderboard
+                Select a market to load its deep dive
               </div>
             )}
           </div>
@@ -276,7 +328,7 @@ function DeepDivePanel({ market }) {
 
   if (!dd || !metrics) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+      <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
         <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center">
           <svg className="w-6 h-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -284,7 +336,7 @@ function DeepDivePanel({ market }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-text-primary mb-1">No deep dive data yet</p>
-          <p className="text-xs text-text-tertiary max-w-xs">Analyze a property in this market, load the 60-month deep dive on the Overview tab, then save the target. The data will appear here.</p>
+          <p className="text-xs text-text-tertiary max-w-xs">Analyze a property in this market, load the 60-month deep dive on the Overview tab. It saves automatically.</p>
         </div>
       </div>
     );
@@ -297,26 +349,24 @@ function DeepDivePanel({ market }) {
   const supply = metrics.supply?.current;
   const pacingFill = pacing?.pace_occupancy;
   const pacingYoy = pacing?.yoy_change;
-  const updatedLabel = dd.market?.market_name || dd.market?.locality || market.name;
+  const label = dd.market?.market_name || dd.market?.locality || market.name;
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-xs font-semibold text-text-primary mb-0.5">{updatedLabel}</p>
-        <p className="text-[10px] text-text-tertiary">60-month trailing metrics · saved from last deep dive</p>
+        <p className="text-xs font-semibold text-text-primary mb-0.5">{label}</p>
+        <p className="text-[10px] text-text-tertiary">60-month trailing · saved from last deep dive</p>
       </div>
-
       <div>
         <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">TTM Performance</p>
         <div className="grid grid-cols-2 gap-2">
           <DDStat label="TTM ADR" value={ttmAdr ? formatCurrency(ttmAdr) : null} color="text-violet-600" />
           <DDStat label="TTM Occupancy" value={ttmOcc ? formatPercent(ttmOcc) : null} color="text-pink-600" />
           <DDStat label="TTM RevPAR" value={ttmRevpar ? formatCurrency(ttmRevpar) : null} color="text-sky-600" />
-          <DDStat label="TTM Revenue/Mo" value={ttmRevenue ? formatCurrency(ttmRevenue) : null} color="text-emerald-600" />
-          <DDStat label="Active Supply" value={supply ? formatNumber(Math.round(supply)) : null} />
+          <DDStat label="TTM Rev/Mo" value={ttmRevenue ? formatCurrency(ttmRevenue) : null} color="text-emerald-600" />
+          {supply != null && <DDStat label="Active Supply" value={formatNumber(Math.round(supply))} />}
         </div>
       </div>
-
       {pacing && (
         <div>
           <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Forward Pacing</p>
@@ -333,11 +383,9 @@ function DeepDivePanel({ market }) {
             />
           </div>
           {pacingFill != null && (
-            <div className="mt-2 rounded-lg bg-white border border-border/50 overflow-hidden">
-              <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, pacingFill)}%`, backgroundColor: pacingFill >= 60 ? '#10b981' : pacingFill >= 40 ? '#f59e0b' : '#ef4444' }} />
-              </div>
+            <div className="mt-2 h-1.5 rounded-full bg-white border border-border/50 overflow-hidden">
+              <div className="h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, pacingFill)}%`, backgroundColor: pacingFill >= 60 ? '#10b981' : pacingFill >= 40 ? '#f59e0b' : '#ef4444' }} />
             </div>
           )}
         </div>
