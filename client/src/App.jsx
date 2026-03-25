@@ -177,6 +177,10 @@ export default function App() {
     } catch (e) { console.error('Reestimate failed:', e); }
   };
 
+  const handleDeepDiveLoad = (deepDive) => {
+    setMarketData(prev => prev ? { ...prev, deepDive } : prev);
+  };
+
   const handleStrConfigChange = (cfg) => { setStrConfig(cfg); };
 
   const handleNewTarget = () => {
@@ -254,7 +258,7 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} adjacentParcelsLoading={adjacentParcelsLoading} strConfig={strConfig} onStrConfigChange={handleStrConfigChange} onReestimate={handleReestimate} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
+        {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} adjacentParcelsLoading={adjacentParcelsLoading} strConfig={strConfig} onStrConfigChange={handleStrConfigChange} onReestimate={handleReestimate} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} onDeepDiveLoad={handleDeepDiveLoad} />}
         {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
         {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} adjacentParcels={adjacentParcels} />}
         {activeTab === 'pipeline' && <Pipeline mapboxToken={mapboxToken} data={pipelineData} loading={pipelineLoading} onRefresh={loadPipeline} onAnalyze={(addr, coords) => { handleAnalyze(addr, coords); setActiveTab('overview'); }} />}

@@ -7,7 +7,7 @@ import InfoTip from './InfoTip';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
-export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], adjacentParcelsLoading = false, strConfig = { bedrooms: 2, baths: 1, guests: 4 }, onStrConfigChange, onReestimate, loading, mapCenter, parcelGeometry, notes, onNotesChange }) {
+export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, marketData, adjacentParcels = [], adjacentParcelsLoading = false, strConfig = { bedrooms: 2, baths: 1, guests: 4 }, onStrConfigChange, onReestimate, loading, mapCenter, parcelGeometry, notes, onNotesChange, onDeepDiveLoad }) {
   const [address, setAddress] = useState('');
   const [selectedListingId, setSelectedListingId] = useState(null);
   const [radius, setRadius] = useState(10);
@@ -354,7 +354,7 @@ export default function TargetOverview({ mapboxToken, onAnalyze, parcelData, mar
 
         {/* Market Deep Dive — always available when we have coordinates */}
         {mapCenter && (
-          <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} />
+          <MarketDeepDive lat={mapCenter.lat} lng={mapCenter.lng} marketData={m} onDeepDiveLoad={onDeepDiveLoad} />
         )}
 
         {/* Adjacent Parcels */}

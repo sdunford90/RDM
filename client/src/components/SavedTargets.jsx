@@ -38,6 +38,9 @@ function extractMetrics(asset) {
   const m = asset.market || {};
   const p = asset.parcel || {};
   const u = asset.underwriting || {};
+  const dd = m.deepDive || {};
+  const ddMetrics = dd.allMetrics || {};
+  const ddPacing = dd.pacing || null;
 
   const adr = m.summary?.avg_daily_rate || m.avg_daily_rate;
   const occ = m.summary?.avg_occupancy || m.avg_occupancy;
@@ -51,9 +54,18 @@ function extractMetrics(asset) {
   const assessed = p.tax?.parval;
   const zoning = p.landuse?.usedesc || p.landuse?.zoning;
   const owner = p.ownership?.owner;
-  const beds = u.strUnits?.length > 0 ? u.strUnits.reduce((s, u) => s + (u.bedrooms || 0), 0) : null;
 
-  return { adr, occ, annualRev, monthlyRev, activeListings, purchasePrice, capRate, acreage, taxBill, assessed, zoning, owner, beds };
+  // Deep dive TTM stats
+  const ttmAdr = ddMetrics.adr?.ttm_average;
+  const ttmOcc = ddMetrics.occupancy?.ttm_average;
+  const ttmRevpar = ddMetrics.revpar?.ttm_average;
+  const ttmRevenue = ddMetrics.revenue?.ttm_average;
+  const activeSupply = ddMetrics.supply?.current;
+  const pacingFill = ddPacing?.pace_occupancy;
+  const pacingYoy = ddPacing?.yoy_change;
+  const marketName = dd.market?.market_name || dd.market?.locality || null;
+
+  return { adr, occ, annualRev, monthlyRev, activeListings, purchasePrice, capRate, acreage, taxBill, assessed, zoning, owner, ttmAdr, ttmOcc, ttmRevpar, ttmRevenue, activeSupply, pacingFill, pacingYoy, marketName };
 }
 
 export default function SavedTargets({ assets, onLoad, onRefresh, onStageChange, onCompare, compareIds = [], setCompareIds }) {
@@ -139,6 +151,7 @@ export default function SavedTargets({ assets, onLoad, onRefresh, onStageChange,
               const mx = extractMetrics(asset);
               const hasMarket = mx.adr || mx.annualRev || mx.occ;
               const hasProperty = mx.purchasePrice || mx.acreage || mx.assessed;
+              const hasDeepDive = mx.ttmAdr || mx.ttmOcc || mx.ttmRevpar || mx.pacingFill;
 
               return (
                 <div key={asset.id}
@@ -200,6 +213,31 @@ export default function SavedTargets({ assets, onLoad, onRefresh, onStageChange,
                       {mx.taxBill > 0 && <MetricPill label="Tax Bill" value={fmt$(mx.taxBill)} />}
                       {mx.capRate > 0 && <MetricPill label="Target Cap" value={`${mx.capRate}%`} color="text-violet-600" />}
                       {mx.zoning && <MetricPill label="Use" value={mx.zoning.length > 20 ? mx.zoning.slice(0, 20) + '…' : mx.zoning} />}
+                    </div>
+                  )}
+
+                  {/* Deep dive TTM metrics */}
+                  {hasDeepDive && (
+                    <div className="mt-2 pt-2 border-t border-dashed border-border/60">
+                      <p className="text-[8px] font-bold text-text-tertiary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
+                        60-Mo Market {mx.marketName ? `· ${mx.marketName}` : ''}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        <MetricPill label="TTM ADR" value={mx.ttmAdr ? `$${Math.round(mx.ttmAdr)}/nt` : null} color="text-violet-600" />
+                        <MetricPill label="TTM Occ" value={mx.ttmOcc ? `${Math.round(mx.ttmOcc)}%` : null} color="text-pink-600" />
+                        <MetricPill label="TTM RevPAR" value={mx.ttmRevpar ? `$${Math.round(mx.ttmRevpar)}` : null} color="text-sky-600" />
+                        <MetricPill label="TTM Revenue" value={fmt$(mx.ttmRevenue)} color="text-emerald-600" />
+                        <MetricPill label="Supply" value={mx.activeSupply ? String(Math.round(mx.activeSupply)) : null} />
+                        {mx.pacingFill != null && (
+                          <MetricPill label="Fwd Pacing" value={`${Math.round(mx.pacingFill)}% booked`}
+                            color={mx.pacingFill >= 60 ? 'text-emerald-600' : mx.pacingFill >= 40 ? 'text-amber-600' : 'text-red-500'} />
+                        )}
+                        {mx.pacingYoy != null && (
+                          <MetricPill label="Pacing YoY" value={`${mx.pacingYoy >= 0 ? '+' : ''}${Math.round(mx.pacingYoy)}%`}
+                            color={mx.pacingYoy >= 0 ? 'text-emerald-600' : 'text-red-500'} />
+                        )}
+                      </div>
                     </div>
                   )}
 

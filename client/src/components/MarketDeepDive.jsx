@@ -18,7 +18,7 @@ const chartBase = {
   }
 };
 
-export default function MarketDeepDive({ lat, lng, marketData }) {
+export default function MarketDeepDive({ lat, lng, marketData, onDeepDiveLoad }) {
   const [market, setMarket] = useState(null);
   const [allMetrics, setAllMetrics] = useState(null);
   const [pacing, setPacing] = useState(null);
@@ -82,6 +82,16 @@ export default function MarketDeepDive({ lat, lng, marketData }) {
       if (est && !est.error) setEstimate(est);
 
       setLoaded(true);
+
+      // Emit deep dive data so parent can persist it with the save
+      if (onDeepDiveLoad) {
+        onDeepDiveLoad({
+          allMetrics: metrics && !metrics.error ? metrics : null,
+          pacing: pace && !pace.error ? pace : null,
+          estimate: est && !est.error ? est : null,
+          market: mkt
+        });
+      }
     } catch (e) {
       console.error('Deep dive error:', e);
       setError(`Deep dive failed: ${e.message || 'Unknown error'}`);
