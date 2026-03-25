@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { formatCurrency, formatPercent, formatNumber } from '../utils/formatters';
+import MarketDeepDive from './MarketDeepDive';
 
 function scoreColor(score) {
   if (score == null) return '#94a3b8';
@@ -25,6 +26,7 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
   const [selectedId, setSelectedId] = useState(null);
   const [sortCol, setSortCol] = useState('score');
   const [sortDir, setSortDir] = useState('desc');
+  const [rightPanel, setRightPanel] = useState('map');
 
   const sorted = [...markets].sort((a, b) => {
     const va = a[sortCol] ?? -Infinity;
@@ -205,18 +207,50 @@ export default function MarketTracker({ mapboxToken, markets = [], onRefresh }) 
         )}
       </div>
 
-      {/* Map */}
-      <div className="flex-1 relative">
-        <div ref={mapContainer} className="w-full h-full" />
-        {/* Legend */}
-        <div className="absolute top-3 right-14 bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-card text-[10px] space-y-1">
-          {[['70+', '#10b981', 'Strong'], ['50-70', '#f59e0b', 'Moderate'], ['< 50', '#ef4444', 'Weak']].map(([range, color, label]) => (
-            <div key={range} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-text-secondary">{label} ({range})</span>
-            </div>
+      {/* Right panel */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-white shrink-0">
+          {[{ id: 'map', label: 'Map' }, { id: 'deepdive', label: '60-Mo Deep Dive' }].map(t => (
+            <button key={t.id} onClick={() => setRightPanel(t.id)}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all ${rightPanel === t.id ? 'bg-violet-100 text-violet-700' : 'text-text-tertiary hover:text-text-primary hover:bg-surface-1'}`}>
+              {t.label}
+            </button>
           ))}
+          {rightPanel === 'deepdive' && !selectedMarket && (
+            <span className="ml-2 text-[10px] text-text-tertiary italic">Select a market from the leaderboard</span>
+          )}
         </div>
+
+        {/* Map (always rendered to preserve state, hidden when deep dive is active) */}
+        <div className={`flex-1 relative ${rightPanel === 'map' ? 'block' : 'hidden'}`}>
+          <div ref={mapContainer} className="w-full h-full" />
+          <div className="absolute top-3 right-14 bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-card text-[10px] space-y-1">
+            {[['70+', '#10b981', 'Strong'], ['50-70', '#f59e0b', 'Moderate'], ['< 50', '#ef4444', 'Weak']].map(([range, color, label]) => (
+              <div key={range} className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-text-secondary">{label} ({range})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Deep Dive panel */}
+        {rightPanel === 'deepdive' && (
+          <div className="flex-1 overflow-auto bg-surface-1">
+            {selectedMarket ? (
+              <MarketDeepDive
+                lat={selectedMarket.lat}
+                lng={selectedMarket.lng}
+                marketData={selectedMarket.data || null}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-text-tertiary">
+                Select a market from the leaderboard to load its 60-month deep dive
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
