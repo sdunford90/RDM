@@ -1,5 +1,5 @@
 const express = require('express');
-const { saveAsset, getAsset, listAssets, deleteAsset } = require('../db');
+const { saveAsset, getAsset, listAssets, deleteAsset, updateAssetStage } = require('../db');
 const router = express.Router();
 
 // GET /api/assets — list all
@@ -33,6 +33,19 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Save asset error:', err);
     res.status(500).json({ error: 'Failed to save asset' });
+  }
+});
+
+// PATCH /api/assets/:id/stage — update deal stage
+router.patch('/:id/stage', async (req, res) => {
+  try {
+    const { stage } = req.body;
+    if (!stage) return res.status(400).json({ error: 'Stage is required' });
+    const asset = await updateAssetStage(req.params.id, stage);
+    res.json(asset);
+  } catch (err) {
+    console.error('Update stage error:', err);
+    res.status(500).json({ error: 'Failed to update stage' });
   }
 });
 

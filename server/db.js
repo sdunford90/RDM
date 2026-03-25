@@ -32,14 +32,49 @@ async function listAssets() {
       id: true,
       label: true,
       address: true,
+      stage: true,
       updatedAt: true
     },
     orderBy: { updatedAt: 'desc' }
   });
 }
 
+async function updateAssetStage(id, stage) {
+  return prisma.asset.update({ where: { id }, data: { stage, updatedAt: new Date() } });
+}
+
 async function deleteAsset(id) {
   return prisma.asset.delete({ where: { id } });
 }
 
-module.exports = { saveAsset, getAsset, listAssets, deleteAsset };
+// ─── Market CRUD ───
+
+async function saveMarket(market) {
+  const { id, createdAt, updatedAt, ...data } = market;
+  return prisma.market.upsert({
+    where: { name: data.name },
+    update: { ...data, updatedAt: new Date() },
+    create: data
+  });
+}
+
+async function listMarkets() {
+  return prisma.market.findMany({
+    select: {
+      id: true, name: true, lat: true, lng: true,
+      adr: true, occupancy: true, revpar: true, monthlyRev: true,
+      listings: true, supplyGrowth: true, score: true, updatedAt: true
+    },
+    orderBy: { score: 'desc' }
+  });
+}
+
+async function getMarket(id) {
+  return prisma.market.findUnique({ where: { id } });
+}
+
+async function deleteMarket(id) {
+  return prisma.market.delete({ where: { id } });
+}
+
+module.exports = { saveAsset, getAsset, listAssets, deleteAsset, updateAssetStage, saveMarket, listMarkets, getMarket, deleteMarket };

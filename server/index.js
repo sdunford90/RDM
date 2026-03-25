@@ -9,6 +9,8 @@ const marketRoutes = require('./routes/market');
 const listingRoutes = require('./routes/listings');
 const assetRoutes = require('./routes/assets');
 const adminRoutes = require('./routes/admin');
+const sheetsRoutes = require('./routes/sheets');
+const marketsRoutes = require('./routes/markets');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +28,8 @@ setupAuth(app).then(async () => {
   app.use('/api/listings', isAuthenticated, listingRoutes);
   app.use('/api/assets', isAuthenticated, assetRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/sheets', isAuthenticated, sheetsRoutes);
+  app.use('/api/markets', isAuthenticated, marketsRoutes);
 
   // Mapbox token — public (needed before login to render the map on the login page)
   app.get('/api/mapbox-token', (req, res) => {

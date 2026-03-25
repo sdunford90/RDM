@@ -6,13 +6,20 @@ import MapView from './components/MapView';
 import SavedTargets from './components/SavedTargets';
 import LoginPage from './components/LoginPage';
 import AdminPanel from './components/AdminPanel';
+import Pipeline from './components/Pipeline';
+import MarketTracker from './components/MarketTracker';
+import ComparisonView from './components/ComparisonView';
 import { useAuth } from './hooks/useAuth';
-import { fetchMapboxToken, fetchParcelData, fetchAdjacentParcels, fetchMarketData, fetchRevenueEstimate, saveAsset as saveAssetApi, listAssets, getAsset } from './utils/api';
+import { fetchMapboxToken, fetchParcelData, fetchAdjacentParcels, fetchMarketData, fetchRevenueEstimate,
+  saveAsset as saveAssetApi, listAssets, getAsset, updateAssetStage as updateAssetStageApi,
+  fetchPipeline, fetchMarkets, saveMarketData, lookupMarket } from './utils/api';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
   { id: 'underwriting', label: 'Underwriting', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
   { id: 'map', label: 'Map', icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7' },
+  { id: 'pipeline', label: 'Pipeline', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+  { id: 'markets', label: 'Markets', icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   { id: 'saved', label: 'Targets', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' }
 ];
 
@@ -43,13 +50,35 @@ export default function App() {
   const [notes, setNotes] = useState('');
   const autoSaveTimer = useRef(null);
 
+  // Pipeline & Markets state
+  const [pipelineData, setPipelineData] = useState({ headers: [], rows: [], total: 0 });
+  const [pipelineLoading, setPipelineLoading] = useState(false);
+  const [markets, setMarkets] = useState([]);
+  const [compareIds, setCompareIds] = useState([]);
+  const [showComparison, setShowComparison] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchMapboxToken().then(setMapboxToken).catch(console.error);
     loadSavedAssets();
+    loadPipeline();
+    loadMarkets();
   }, [isAuthenticated]);
 
   const loadSavedAssets = async () => { try { setSavedAssets(await listAssets()); } catch (e) { console.error(e); } };
+
+  const loadPipeline = async () => {
+    setPipelineLoading(true);
+    try { setPipelineData(await fetchPipeline()); } catch (e) { console.error('Pipeline load:', e); }
+    finally { setPipelineLoading(false); }
+  };
+
+  const loadMarkets = async () => {
+    try {
+      const data = await fetchMarkets();
+      setMarkets(Array.isArray(data) ? data : []);
+    } catch (e) { console.error('Markets load:', e); }
+  };
 
   useEffect(() => {
     if (!currentAsset?.id) return;
@@ -67,7 +96,6 @@ export default function App() {
         fetchMarketData({ lat, lng, radius_miles }),
         fetchRevenueEstimate({ lat, lng, ...strConfig }).catch(() => null),
       ]);
-      // Merge revenue calculator estimate into market data if the radius search didn't produce one
       const enrichedMarket = { ...market };
       if (revEstimate && !revEstimate.error && (!market.estimate || !market.estimate.projected_annual_revenue)) {
         enrichedMarket.estimate = {
@@ -79,7 +107,6 @@ export default function App() {
           ...(market.estimate || {})
         };
       }
-      // Also store raw calculator estimate for reference
       enrichedMarket.calculator_estimate = revEstimate;
       setParcelData(parcel); setMarketData(enrichedMarket);
       if (parcel.geometry) setParcelGeometry(parcel.geometry);
@@ -91,10 +118,32 @@ export default function App() {
           .then(data => { setAdjacentParcels(data.parcels || []); })
           .catch(e => { console.warn('Adjacent parcels failed:', e); setAdjacentParcels([]); })
           .finally(() => setAdjacentParcelsLoading(false));
+
+        // Auto-save market to tracker (non-blocking)
+        autoSaveMarket(lat, lng, enrichedMarket);
       }
       setUnderwriting(prev => { const next = { ...prev, expenses: { ...prev.expenses } }; if (parcel?.tax?.taxamt && !prev.expenses.propertyTaxes) next.expenses.propertyTaxes = Number(parcel.tax.taxamt) || 0; return next; });
       setCurrentAsset(prev => ({ ...prev, address, lat, lng, label: prev?.label || parcel?.identity?.location_name || address?.split(',')[0] || 'New Target' }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  const autoSaveMarket = async (lat, lng, marketObj) => {
+    try {
+      const marketLookup = await lookupMarket({ lat, lng }).catch(() => null);
+      const marketName = marketLookup?.market_name || marketLookup?.locality || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      const summary = marketObj?.summary || {};
+      await saveMarketData({
+        name: marketName, lat, lng,
+        adr: summary.adr || marketObj?.estimate?.projected_adr || null,
+        occupancy: summary.occupancy || marketObj?.estimate?.projected_occupancy || null,
+        revpar: summary.revpar || null,
+        monthlyRev: summary.revenue || (marketObj?.estimate?.projected_annual_revenue ? marketObj.estimate.projected_annual_revenue / 12 : null),
+        listings: summary.active_listings || null,
+        supplyGrowth: null,
+        data: marketObj
+      });
+      loadMarkets();
+    } catch (e) { console.warn('Market auto-save failed:', e); }
   };
 
   const handleSave = async (isAutoSave = false) => {
@@ -128,14 +177,22 @@ export default function App() {
     } catch (e) { console.error('Reestimate failed:', e); }
   };
 
-  const handleStrConfigChange = (cfg) => {
-    setStrConfig(cfg);
-  };
+  const handleStrConfigChange = (cfg) => { setStrConfig(cfg); };
 
   const handleNewTarget = () => {
     setCurrentAsset(null); setParcelData(null); setMarketData(null);
     setUnderwriting(defaultUnderwriting); setMapCenter(null); setParcelGeometry(null); setAdjacentParcels([]); setNotes(''); setActiveTab('overview');
   };
+
+  const handleStageChange = async (id, stage) => {
+    try {
+      await updateAssetStageApi(id, stage);
+      loadSavedAssets();
+      if (currentAsset?.id === id) setCurrentAsset(prev => ({ ...prev, stage }));
+    } catch (e) { console.error('Stage update failed:', e); }
+  };
+
+  const handleCompare = (ids) => { setCompareIds(ids); setShowComparison(true); };
 
   if (authLoading) {
     return (
@@ -175,12 +232,14 @@ export default function App() {
       <Navbar savedAssets={savedAssets} onLoadAsset={handleLoadAsset} onNewTarget={handleNewTarget}
         onSave={() => handleSave(false)} saveStatus={saveStatus}
         currentLabel={currentAsset?.label} onLabelChange={(label) => setCurrentAsset(prev => ({ ...prev, label }))}
+        currentStage={currentAsset?.stage} onStageChange={currentAsset?.id ? (stage) => handleStageChange(currentAsset.id, stage) : null}
+        parcelData={parcelData} marketData={marketData} underwriting={underwriting} currentAsset={currentAsset}
         user={user} />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 px-3 md:px-6 py-2 bg-gradient-to-r from-violet-50 via-fuchsia-50 to-pink-50 border-b border-violet-100 overflow-x-auto flex-shrink-0 no-scrollbar">
         {TABS.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setShowComparison(false); }}
             className={`flex items-center gap-1.5 px-3 md:px-4 py-2 text-[12px] md:text-[13px] font-medium rounded-xl transition-all flex-shrink-0 ${
               activeTab === tab.id
                 ? 'bg-gradient-brand text-white shadow-glow-violet'
@@ -198,9 +257,11 @@ export default function App() {
         {activeTab === 'overview' && <TargetOverview mapboxToken={mapboxToken} onAnalyze={handleAnalyze} parcelData={parcelData} marketData={marketData} adjacentParcels={adjacentParcels} adjacentParcelsLoading={adjacentParcelsLoading} strConfig={strConfig} onStrConfigChange={handleStrConfigChange} onReestimate={handleReestimate} loading={loading} mapCenter={mapCenter} parcelGeometry={parcelGeometry} notes={notes} onNotesChange={setNotes} />}
         {activeTab === 'underwriting' && <UnderwritingModel underwriting={underwriting} setUnderwriting={setUnderwriting} marketData={marketData} parcelData={parcelData} />}
         {activeTab === 'map' && <MapView mapboxToken={mapboxToken} center={mapCenter} parcelGeometry={parcelGeometry} parcelData={parcelData} adjacentParcels={adjacentParcels} />}
-        {activeTab === 'saved' && (
+        {activeTab === 'pipeline' && <Pipeline mapboxToken={mapboxToken} data={pipelineData} loading={pipelineLoading} onRefresh={loadPipeline} onAnalyze={(addr, coords) => { handleAnalyze(addr, coords); setActiveTab('overview'); }} />}
+        {activeTab === 'markets' && <MarketTracker mapboxToken={mapboxToken} markets={markets} onRefresh={loadMarkets} />}
+        {activeTab === 'saved' && !showComparison && (
           <div className="h-full overflow-y-auto">
-            <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} />
+            <SavedTargets assets={savedAssets} onLoad={handleLoadAsset} onRefresh={loadSavedAssets} onStageChange={handleStageChange} onCompare={handleCompare} compareIds={compareIds} setCompareIds={setCompareIds} />
             {isAdmin && (
               <div className="border-t border-border mt-4">
                 <div className="px-5 pt-4 pb-1">
@@ -216,6 +277,7 @@ export default function App() {
             )}
           </div>
         )}
+        {activeTab === 'saved' && showComparison && <ComparisonView assetIds={compareIds} onBack={() => setShowComparison(false)} />}
       </div>
     </div>
   );

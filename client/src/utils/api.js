@@ -57,6 +57,46 @@ export async function deleteAsset(id) {
   return res.json();
 }
 
+export async function updateAssetStage(id, stage) {
+  const res = await fetch(`${API_BASE}/assets/${id}/stage`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage })
+  });
+  return res.json();
+}
+
+// ─── Pipeline (Google Sheets) ───
+
+export async function fetchPipeline() {
+  const res = await fetch(`${API_BASE}/sheets`);
+  return res.json();
+}
+
+export async function refreshPipeline() {
+  const res = await fetch(`${API_BASE}/sheets/refresh`);
+  return res.json();
+}
+
+export async function geocodePipeline() {
+  const res = await fetch(`${API_BASE}/sheets/geocode`, { method: 'POST' });
+  return res.json();
+}
+
+// ─── Market Tracker ───
+
+export async function fetchMarkets() {
+  const res = await fetch(`${API_BASE}/markets`);
+  return res.json();
+}
+
+export async function saveMarketData(market) {
+  const res = await fetch(`${API_BASE}/markets`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(market)
+  });
+  return res.json();
+}
+
 // ─── Market endpoints (new) ───
 
 export async function lookupMarket({ lat, lng }) {
