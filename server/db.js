@@ -33,7 +33,11 @@ async function listAssets() {
       label: true,
       address: true,
       stage: true,
-      updatedAt: true
+      notes: true,
+      updatedAt: true,
+      market: true,
+      parcel: true,
+      underwriting: true
     },
     orderBy: { updatedAt: 'desc' }
   });
