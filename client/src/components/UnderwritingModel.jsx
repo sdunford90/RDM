@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { formatCurrency, formatPercent, formatMultiple, formatNumber } from '../utils/formatters';
 
 export default function UnderwritingModel({ underwriting, setUnderwriting, marketData, parcelData }) {
   const u = underwriting;
+  const [showExport, setShowExport] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const update = (path, value) => {
     setUnderwriting(prev => {
@@ -54,6 +56,81 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
     const variance = impliedValue - purchasePrice;
     return { slipRevenue, strRevenue, otherRev, totalEGR, mgmtFee, maintenance, totalOpex, expenseRatio, noi, capRate, grm, pricePerSlip, pricePerSTR, impliedValue, variance, blendedADR, blendedOcc, purchasePrice, targetCapRate };
   }, [u]);
+
+  const buildExport = () => {
+    const e = u.expenses;
+    return {
+      meta: { exportedAt: new Date().toISOString(), source: 'RDM Deal Tool' },
+      inputs: {
+        purchasePrice: Number(u.purchasePrice),
+        targetCapRate: Number(u.targetCapRate),
+        slipCategories: u.slipCategories,
+        strUnits: u.strUnits,
+        otherRevenue: u.otherRevenue,
+        expenses: {
+          mgmtFeeEnabled: e.mgmtFeeEnabled,
+          mgmtFeePct: Number(e.mgmtFeePct),
+          propertyTaxes: Number(e.propertyTaxes),
+          insurance: Number(e.insurance),
+          utilities: Number(e.utilities),
+          maintenanceMode: e.maintenanceMode,
+          maintenancePct: Number(e.maintenancePct),
+          maintenanceFlat: Number(e.maintenanceFlat),
+          payroll: Number(e.payroll),
+          marketing: Number(e.marketing),
+          otherOpex: Number(e.otherOpex),
+        }
+      },
+      outputs: {
+        revenue: {
+          slipRevenue: calc.slipRevenue,
+          strRevenue: calc.strRevenue,
+          otherRevenue: calc.otherRev,
+          totalEGR: calc.totalEGR,
+        },
+        expenses: {
+          mgmtFee: calc.mgmtFee,
+          maintenance: calc.maintenance,
+          totalOpex: calc.totalOpex,
+          expenseRatio: calc.expenseRatio,
+        },
+        noi: calc.noi,
+        valuation: {
+          purchasePrice: calc.purchasePrice,
+          capRate: calc.capRate,
+          grm: calc.grm,
+          pricePerSlip: calc.pricePerSlip,
+          pricePerSTR: calc.pricePerSTR,
+          targetCapRate: calc.targetCapRate,
+          impliedValue: calc.impliedValue,
+          variance: calc.variance,
+        },
+        str: {
+          blendedADR: calc.blendedADR,
+          blendedOcc: calc.blendedOcc,
+        }
+      },
+      marketData: marketData ? {
+        adr: marketData.estimate?.projected_adr || marketData.summary?.avg_daily_rate,
+        occupancy: marketData.estimate?.projected_occupancy || marketData.summary?.avg_occupancy,
+        annualRevenue: marketData.estimate?.projected_annual_revenue,
+      } : null,
+      parcelData: parcelData ? {
+        acres: parcelData.physical?.ll_gisacre,
+        buildingSF: parcelData.physical?.area_building,
+        units: parcelData.physical?.numunits,
+        taxBill: parcelData.tax?.taxamt,
+        assessedValue: parcelData.tax?.parval,
+        zoning: parcelData.landuse?.usedesc,
+        owner: parcelData.ownership?.owner,
+      } : null,
+    };
+  };
+
+  const handleCopyExport = () => {
+    const json = JSON.stringify(buildExport(), null, 2);
+    navigator.clipboard.writeText(json).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
 
   const copySummary = () => {
     const e = u.expenses;
@@ -180,12 +257,39 @@ export default function UnderwritingModel({ underwriting, setUnderwriting, marke
           {/* Gradient accent bar */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-hero" />
 
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-2">
             <h2 className="text-lg font-bold gradient-text">Underwriting Summary</h2>
-            <button onClick={copySummary} className="px-4 py-1.5 bg-violet-50 border border-violet-200 text-accent rounded-xl text-xs font-semibold hover:bg-violet-100 transition-all">
-              Copy Summary
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={copySummary} className="px-4 py-1.5 bg-violet-50 border border-violet-200 text-accent rounded-xl text-xs font-semibold hover:bg-violet-100 transition-all">
+                Copy Summary
+              </button>
+              <button onClick={() => setShowExport(v => !v)} className="px-4 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold hover:bg-emerald-100 transition-all">
+                {showExport ? 'Hide Export' : 'Export JSON'}
+              </button>
+            </div>
           </div>
+
+          {/* JSON Export panel */}
+          {showExport && (() => {
+            const exportJson = JSON.stringify(buildExport(), null, 2);
+            return (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-emerald-200 bg-emerald-100/60">
+                  <div>
+                    <p className="text-[11px] font-bold text-emerald-800">JSON Export</p>
+                    <p className="text-[10px] text-emerald-600">Paste into any other app to import this underwriting model</p>
+                  </div>
+                  <button onClick={handleCopyExport}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50'}`}>
+                    {copied ? '✓ Copied!' : 'Copy JSON'}
+                  </button>
+                </div>
+                <pre className="text-[10px] font-mono text-emerald-900 p-4 overflow-x-auto max-h-96 leading-relaxed whitespace-pre">
+                  {exportJson}
+                </pre>
+              </div>
+            );
+          })()}
 
           <div>
             <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-2">Effective Gross Revenue</p>
