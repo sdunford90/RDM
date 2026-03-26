@@ -36,6 +36,11 @@ setupAuth(app).then(async () => {
     res.json({ token: process.env.MAPBOX_TOKEN });
   });
 
+  // Standalone underwriting calculator — no auth required, for export to other apps
+  app.get('/underwriting-tool', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'exports', 'underwriting-calculator.html'));
+  });
+
   // Serve static frontend in production
   const distPath = path.join(__dirname, '..', 'client', 'dist');
   const fs = require('fs');
