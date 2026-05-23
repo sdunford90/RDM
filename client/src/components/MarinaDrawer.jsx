@@ -4,6 +4,7 @@ import { fetchMarina, updateMarina, saveAsset } from '../utils/api';
 import StagePill from './StagePill';
 import ScoreBar from './ScoreBar';
 import EnrichmentPanel from './EnrichmentPanel';
+import FilesPanel from './FilesPanel';
 import { formatCompactCurrency, formatRelativeTime } from '../utils/formatters';
 import { ENRICHABLE_STAGES } from '../utils/stages';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -204,6 +205,11 @@ export default function MarinaDrawer({ marinaId, onClose, onChanged, mapboxToken
                     <button onClick={openInUnderwriting} className="px-4 py-2 text-sm bg-ink-1 text-white rounded hover:bg-ink-2">Open in Underwriting →</button>
                   </div>
                 )}
+              </div>
+
+              {/* Files */}
+              <div className="px-4 md:px-6 mt-5">
+                <FilesPanel marinaId={marina.id} />
               </div>
 
               {/* Activity */}

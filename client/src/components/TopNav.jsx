@@ -20,7 +20,7 @@ export default function TopNav() {
       <div className="flex items-center gap-3 md:gap-6 min-w-0">
         <div
           className="flex items-center gap-2 cursor-pointer flex-shrink-0"
-          onClick={() => nav('/pipeline')}
+          onClick={() => nav('/')}
           title="RDM"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0E7490" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -36,6 +36,7 @@ export default function TopNav() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <NavLink to="/" end className={linkClass}>Home</NavLink>
           <NavLink to="/pipeline" className={linkClass}>Pipeline</NavLink>
           <NavLink to="/triage" className={linkClass}>Triage</NavLink>
         </div>

@@ -51,3 +51,29 @@ export const fetchParcelData = ({ lat, lng, address }) =>
   req('/parcel', { method: 'POST', body: JSON.stringify({ lat, lng, address }) });
 export const fetchMarketData = ({ lat, lng, radius_miles = 10 }) =>
   req('/market', { method: 'POST', body: JSON.stringify({ lat, lng, radius_miles }) });
+
+// --- Dashboard ---
+export const fetchDashboard = () => req('/dashboard');
+
+// --- Files ---
+export const listFiles    = (marinaId) => req(`/marinas/${marinaId}/files`);
+export const deleteFile   = (fileId)   => req(`/files/${fileId}`, { method: 'DELETE' });
+export const downloadFileUrl = (fileId) => `${API_BASE}/files/${fileId}/download`;
+
+export async function uploadFile(marinaId, file, fileType = 'other') {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('file_type', fileType);
+  const res = await fetch(`${API_BASE}/marinas/${marinaId}/files`, {
+    method: 'POST',
+    credentials: 'include',
+    body: fd
+  });
+  let body; try { body = await res.json(); } catch { body = null; }
+  if (!res.ok) {
+    const err = new Error((body && body.error) || res.statusText);
+    err.status = res.status; err.body = body;
+    throw err;
+  }
+  return body;
+}

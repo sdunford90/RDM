@@ -11,6 +11,8 @@ const marketRoutes = require('./routes/market');
 const assetRoutes = require('./routes/assets');
 const marinaRoutes = require('./routes/marinas');
 const authRoutes = require('./routes/auth');
+const fileRoutes = require('./routes/files');
+const dashboardRoutes = require('./routes/dashboard');
 const { requireAuth } = require('./middleware/auth');
 
 const app = express();
@@ -34,6 +36,8 @@ app.use('/api/marinas', marinaRoutes);
 app.use('/api/parcel', requireAuth, parcelRoutes);
 app.use('/api/market', requireAuth, marketRoutes);
 app.use('/api/assets', requireAuth, assetRoutes);
+app.use('/api/dashboard', requireAuth, dashboardRoutes);
+app.use('/api', requireAuth, fileRoutes);
 
 // Serve static frontend in production.
 const distPath = path.join(__dirname, '..', 'client', 'dist');
