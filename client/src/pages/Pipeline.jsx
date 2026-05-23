@@ -5,8 +5,10 @@ import { useKeyboard } from '../hooks/useKeyboard';
 import { fetchMapboxToken } from '../utils/api';
 import FiltersBar from '../components/FiltersBar';
 import PipelineTable from '../components/PipelineTable';
+import MarinaCardList from '../components/MarinaCardList';
 import KanbanBoard from '../components/KanbanBoard';
 import MarinaDrawer from '../components/MarinaDrawer';
+import { useIsNarrow } from '../hooks/useMediaQuery';
 
 export default function Pipeline() {
   const [view, setView] = useState('table');
@@ -14,6 +16,7 @@ export default function Pipeline() {
   const [mapboxToken, setMapboxToken] = useState(null);
   const [params, setParams] = useSearchParams();
   const nav = useNavigate();
+  const narrow = useIsNarrow();
   const { filters, updateFilter, reset, data, stats, loading, setStage, refresh } = usePipeline();
 
   useEffect(() => { fetchMapboxToken().then(setMapboxToken).catch(() => {}); }, []);
@@ -49,39 +52,38 @@ export default function Pipeline() {
   return (
     <div className="flex flex-col h-full">
       {/* Header strip */}
-      <div className="px-5 py-2.5 bg-surface border-b border-hairline flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="px-3 md:px-5 py-2 md:py-2.5 bg-surface border-b border-hairline flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setView('table')}
             className={`px-2.5 py-1 text-xs rounded ${view === 'table' ? 'bg-ink-1 text-white' : 'bg-canvas text-ink-2 border border-hairline'}`}
-          >Table</button>
+          >{narrow ? 'List' : 'Table'}</button>
           <button
             onClick={() => setView('board')}
             className={`px-2.5 py-1 text-xs rounded ${view === 'board' ? 'bg-ink-1 text-white' : 'bg-canvas text-ink-2 border border-hairline'}`}
           >Board</button>
         </div>
 
-        <div className="flex-1 flex items-center gap-3">
-          <div className="flex-1 max-w-md">
-            <div className="flex items-center justify-between text-[11px] text-ink-3 mb-1">
-              <span>{totals.reviewed.toLocaleString()} reviewed · {totals.interested.toLocaleString()} active</span>
-              <span className="tnum">{reviewedPct}% of {totals.total.toLocaleString()}</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-accent transition-all" style={{ width: `${reviewedPct}%` }} />
-            </div>
+        <div className="flex-1 min-w-[140px] max-w-md">
+          <div className="flex items-center justify-between text-[11px] text-ink-3 mb-1">
+            <span className="truncate">{totals.reviewed.toLocaleString()} reviewed · {totals.interested.toLocaleString()} active</span>
+            <span className="tnum flex-shrink-0">{reviewedPct}% of {totals.total.toLocaleString()}</span>
           </div>
-
-          <button
-            onClick={() => nav(`/triage?${new URLSearchParams(filtersToParams(filters)).toString()}`)}
-            className="px-3 py-1.5 text-sm bg-accent text-white rounded hover:bg-accent-hover flex items-center gap-1.5"
-            title="Triage (T)"
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            Triage Mode
-            <kbd className="ml-1">T</kbd>
-          </button>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-accent transition-all" style={{ width: `${reviewedPct}%` }} />
+          </div>
         </div>
+
+        <button
+          onClick={() => nav(`/triage?${new URLSearchParams(filtersToParams(filters)).toString()}`)}
+          className="px-3 py-1.5 text-sm bg-accent text-white rounded hover:bg-accent-hover flex items-center gap-1.5"
+          title="Triage (T)"
+        >
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <span className="hidden sm:inline">Triage Mode</span>
+          <span className="sm:hidden">Triage</span>
+          {!narrow && <kbd className="ml-1">T</kbd>}
+        </button>
       </div>
 
       <FiltersBar filters={filters} onChange={updateFilter} onReset={reset} total={data.total} />
@@ -89,14 +91,22 @@ export default function Pipeline() {
       {loading && data.results.length === 0 ? (
         <div className="flex-1 grid place-items-center text-ink-3">Loading…</div>
       ) : view === 'table' ? (
-        <PipelineTable
-          rows={data.results}
-          sort={filters.sort}
-          dir={filters.dir}
-          onSort={onSort}
-          onStageChange={setStage}
-          onOpen={onOpen}
-        />
+        narrow ? (
+          <MarinaCardList
+            rows={data.results}
+            onStageChange={setStage}
+            onOpen={onOpen}
+          />
+        ) : (
+          <PipelineTable
+            rows={data.results}
+            sort={filters.sort}
+            dir={filters.dir}
+            onSort={onSort}
+            onStageChange={setStage}
+            onOpen={onOpen}
+          />
+        )
       ) : (
         <KanbanBoard
           rows={data.results}

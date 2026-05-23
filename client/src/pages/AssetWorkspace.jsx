@@ -102,22 +102,22 @@ export default function AssetWorkspace() {
   return (
     <div className="flex flex-col h-full">
       {/* Sub-header */}
-      <div className="px-5 py-2 bg-surface border-b border-hairline flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => nav('/pipeline')} className="text-sm text-ink-3 hover:text-accent">← Pipeline</button>
-          <h1 className="text-base font-semibold text-ink-1">{currentAsset?.label || 'New Target'}</h1>
-          {currentAsset?.address && <span className="text-xs text-ink-3">{currentAsset.address}</span>}
+      <div className="px-3 md:px-5 py-2 bg-surface border-b border-hairline flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+          <button onClick={() => nav('/pipeline')} className="text-sm text-ink-3 hover:text-accent flex-shrink-0">← Pipeline</button>
+          <h1 className="text-sm md:text-base font-semibold text-ink-1 truncate">{currentAsset?.label || 'New Target'}</h1>
+          {currentAsset?.address && <span className="hidden md:inline text-xs text-ink-3 truncate">{currentAsset.address}</span>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
           {saveStatus === 'manual' && <span className="text-xs text-emerald-600">Saved ✓</span>}
-          {saveStatus === 'auto'   && <span className="text-xs text-ink-3">Auto-saved</span>}
+          {saveStatus === 'auto'   && <span className="text-xs text-ink-3 hidden md:inline">Auto-saved</span>}
           {saveStatus === 'error'  && <span className="text-xs text-red-600">Save failed</span>}
           <button onClick={() => handleSave(false)} className="px-3 py-1.5 text-sm border border-hairline rounded text-ink-2 hover:bg-muted">Save</button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-hairline bg-surface px-5">
+      <div className="flex border-b border-hairline bg-surface px-3 md:px-5 overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab.id}

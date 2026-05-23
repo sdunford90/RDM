@@ -35,8 +35,8 @@ export default function EnrichmentPanel({ marina, onUpdated }) {
 
   return (
     <div className="border border-hairline rounded-lg bg-surface">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-hairline">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 border-b border-hairline">
+        <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-ink-1">Data Enrichment</h3>
           <p className="text-xs text-ink-3 mt-0.5">
             {enrichable
@@ -44,7 +44,7 @@ export default function EnrichmentPanel({ marina, onUpdated }) {
               : enrichableText}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {anyDone && (
             <button
               onClick={() => run({ force: true })}
