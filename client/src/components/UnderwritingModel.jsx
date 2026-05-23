@@ -192,16 +192,16 @@ VALUATION ANALYSIS
   };
 
   return (
-    <div className="h-[calc(100vh-100px)] overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-canvas">
       <div className="max-w-5xl mx-auto p-6 space-y-8">
 
         {/* Section A: Marina Slip Revenue */}
         <Section title="Marina Slip Revenue">
           {u.slipCategories.map((slip, i) => (
-            <div key={i} className="bg-navy-800 border border-navy-700 rounded-lg p-4 space-y-3">
+            <div key={i} className="bg-surface shadow-card border border-hairline rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-secondary">Slip Category {i + 1}</span>
-                <button onClick={() => removeSlip(i)} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                <span className="text-xs text-ink-3">Slip Category {i + 1}</span>
+                <button onClick={() => removeSlip(i)} className="text-red-600 hover:text-red-500 text-sm">×</button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <Input label="Slip Type" value={slip.label} onChange={v => updateSlip(i, 'label', v)} placeholder="e.g. Wet Slip 30ft" />
@@ -210,7 +210,7 @@ VALUATION ANALYSIS
                 <CurrencyInput label="Monthly Rate" value={slip.monthlyRate} onChange={v => updateSlip(i, 'monthlyRate', Number(v))} />
                 <SliderInput label={`Occupancy ${slip.occupancy}%`} value={slip.occupancy} onChange={v => updateSlip(i, 'occupancy', Number(v))} />
                 <div>
-                  <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">Seasonal</label>
+                  <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">Seasonal</label>
                   <div className="flex items-center gap-2">
                     <Toggle value={slip.seasonal} onChange={v => updateSlip(i, 'seasonal', v)} />
                     {slip.seasonal && (
@@ -221,17 +221,17 @@ VALUATION ANALYSIS
               </div>
             </div>
           ))}
-          <button onClick={addSlip} className="text-sm text-gold hover:text-gold-light">+ Add Slip Category</button>
+          <button onClick={addSlip} className="text-sm text-accent hover:text-accent-hover">+ Add Slip Category</button>
           <SummaryCard label="Total Annual Slip Revenue" value={formatCurrency(calc.slipRevenue)} />
         </Section>
 
         {/* Section B: STR Revenue */}
         <Section title="Short-Term Rental / Lodging Revenue">
           {u.strUnits.map((unit, i) => (
-            <div key={i} className="bg-navy-800 border border-navy-700 rounded-lg p-4 space-y-3">
+            <div key={i} className="bg-surface shadow-card border border-hairline rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-secondary">Unit Type {i + 1}</span>
-                <button onClick={() => removeSTR(i)} className="text-red-400 hover:text-red-300 text-sm">×</button>
+                <span className="text-xs text-ink-3">Unit Type {i + 1}</span>
+                <button onClick={() => removeSTR(i)} className="text-red-600 hover:text-red-500 text-sm">×</button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Input label="Unit Type" value={unit.label} onChange={v => updateSTR(i, 'label', v)} placeholder="e.g. Lakefront Cabin" />
@@ -242,7 +242,7 @@ VALUATION ANALYSIS
               </div>
             </div>
           ))}
-          <button onClick={addSTR} className="text-sm text-gold hover:text-gold-light">+ Add Unit Type</button>
+          <button onClick={addSTR} className="text-sm text-accent hover:text-accent-hover">+ Add Unit Type</button>
           <div className="flex gap-4">
             <SummaryCard label="Total Annual STR Revenue" value={formatCurrency(calc.strRevenue)} />
             <MiniCard label="Blended ADR" value={`$${calc.blendedADR.toFixed(0)}/night`} />
@@ -256,25 +256,25 @@ VALUATION ANALYSIS
             <div key={i} className="flex items-end gap-3">
               <Input label="Revenue Item" value={rev.label} onChange={v => updateOtherRev(i, 'label', v)} placeholder="e.g. Fuel dock" />
               <CurrencyInput label="Annual Amount" value={rev.amount} onChange={v => updateOtherRev(i, 'amount', Number(v))} />
-              <button onClick={() => removeOtherRev(i)} className="text-red-400 hover:text-red-300 text-sm pb-2">×</button>
+              <button onClick={() => removeOtherRev(i)} className="text-red-600 hover:text-red-500 text-sm pb-2">×</button>
             </div>
           ))}
-          <button onClick={addOtherRev} className="text-sm text-gold hover:text-gold-light">+ Add Revenue Line</button>
+          <button onClick={addOtherRev} className="text-sm text-accent hover:text-accent-hover">+ Add Revenue Line</button>
         </Section>
 
         {/* Section D: Operating Expenses */}
         <Section title="Operating Expenses">
-          <div className="bg-navy-800 border border-navy-700 rounded-lg p-5 space-y-4">
+          <div className="bg-surface shadow-card border border-hairline rounded-lg p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Toggle value={u.expenses.mgmtFeeEnabled} onChange={v => update('expenses.mgmtFeeEnabled', v)} />
-                <span className="text-sm text-slate-text">Include RDM Management Co. Fee</span>
+                <span className="text-sm text-ink-1">Include RDM Management Co. Fee</span>
               </div>
               {u.expenses.mgmtFeeEnabled && (
                 <div className="flex items-center gap-2">
                   <NumInput label="" value={u.expenses.mgmtFeePct} onChange={v => update('expenses.mgmtFeePct', Number(v))} small />
-                  <span className="text-sm text-slate-secondary">% of EGR</span>
-                  <span className="text-sm font-mono text-gold ml-2">{formatCurrency(calc.mgmtFee)}</span>
+                  <span className="text-sm text-ink-3">% of EGR</span>
+                  <span className="text-sm font-mono text-accent ml-2">{formatCurrency(calc.mgmtFee)}</span>
                 </div>
               )}
             </div>
@@ -284,12 +284,12 @@ VALUATION ANALYSIS
               <CurrencyInput label="Insurance (annual)" value={u.expenses.insurance} onChange={v => update('expenses.insurance', Number(v))} />
               <CurrencyInput label="Utilities (annual)" value={u.expenses.utilities} onChange={v => update('expenses.utilities', Number(v))} />
               <div>
-                <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">Maintenance & Repairs</label>
+                <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">Maintenance & Repairs</label>
                 <div className="flex items-center gap-2">
                   <select
                     value={u.expenses.maintenanceMode}
                     onChange={e => update('expenses.maintenanceMode', e.target.value)}
-                    className="bg-navy-900 border border-navy-700 rounded px-2 py-1.5 text-sm text-slate-text"
+                    className="bg-canvas border border-hairline rounded px-2 py-1.5 text-sm text-ink-1"
                   >
                     <option value="percent">% of Revenue</option>
                     <option value="flat">Flat $</option>
@@ -309,29 +309,29 @@ VALUATION ANALYSIS
         </Section>
 
         {/* Section E: Summary */}
-        <div className="bg-navy-800 border-2 border-gold/30 rounded-xl p-6 space-y-5">
+        <div className="bg-surface shadow-card border-2 border-accent/30 rounded-xl p-6 space-y-5">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gold">Underwriting Summary</h2>
-            <button onClick={copySummary} className="px-4 py-1.5 bg-gold/20 border border-gold/40 text-gold rounded text-xs hover:bg-gold/30 transition-colors">
+            <h2 className="text-lg font-semibold text-accent">Underwriting Summary</h2>
+            <button onClick={copySummary} className="px-4 py-1.5 bg-accent-subtle border border-accent/40 text-accent rounded text-xs hover:bg-accent/20 transition-colors">
               Copy Summary
             </button>
           </div>
 
           {/* EGR */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Effective Gross Revenue (EGR)</h3>
+            <h3 className="text-xs text-ink-3 uppercase tracking-wider mb-3">Effective Gross Revenue (EGR)</h3>
             <div className="space-y-1">
               <SummaryLine label="Marina Slip Revenue" value={formatCurrency(calc.slipRevenue)} />
               <SummaryLine label="STR / Lodging Revenue" value={formatCurrency(calc.strRevenue)} />
               <SummaryLine label="Other Revenue" value={formatCurrency(calc.otherRev)} />
-              <div className="border-t border-navy-700 my-2" />
+              <div className="border-t border-hairline my-2" />
               <SummaryLine label="Total EGR" value={formatCurrency(calc.totalEGR)} bold />
             </div>
           </div>
 
           {/* OpEx */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Operating Expenses</h3>
+            <h3 className="text-xs text-ink-3 uppercase tracking-wider mb-3">Operating Expenses</h3>
             <div className="space-y-1">
               {u.expenses.mgmtFeeEnabled && (
                 <SummaryLine label={`RDM Management Fee (${u.expenses.mgmtFeePct}%)`} value={`(${formatCurrency(calc.mgmtFee)})`} negative />
@@ -343,23 +343,23 @@ VALUATION ANALYSIS
               <SummaryLine label="Payroll" value={`(${formatCurrency(u.expenses.payroll)})`} negative />
               <SummaryLine label="Marketing" value={`(${formatCurrency(u.expenses.marketing)})`} negative />
               <SummaryLine label="Other" value={`(${formatCurrency(u.expenses.otherOpex)})`} negative />
-              <div className="border-t border-navy-700 my-2" />
+              <div className="border-t border-hairline my-2" />
               <SummaryLine label="Total OpEx" value={`(${formatCurrency(calc.totalOpex)})`} bold negative />
               <SummaryLine label="Expense Ratio" value={formatPercent(calc.expenseRatio)} dim />
             </div>
           </div>
 
           {/* NOI */}
-          <div className="bg-navy-900 rounded-lg p-4 text-center">
-            <p className="text-xs text-slate-secondary uppercase tracking-wider mb-1">Net Operating Income (NOI)</p>
-            <p className={`text-3xl font-mono font-bold ${calc.noi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          <div className="bg-canvas rounded-lg p-4 text-center">
+            <p className="text-xs text-ink-3 uppercase tracking-wider mb-1">Net Operating Income (NOI)</p>
+            <p className={`text-3xl font-mono font-bold ${calc.noi >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {formatCurrency(calc.noi)}
             </p>
           </div>
 
           {/* Valuation */}
           <div>
-            <h3 className="text-xs text-slate-secondary uppercase tracking-wider mb-3">Valuation Analysis</h3>
+            <h3 className="text-xs text-ink-3 uppercase tracking-wider mb-3">Valuation Analysis</h3>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <CurrencyInput label="Purchase Price" value={u.purchasePrice} onChange={v => update('purchasePrice', Number(v))} />
               <NumInput label="Target Cap Rate (%)" value={u.targetCapRate} onChange={v => update('targetCapRate', Number(v))} />
@@ -369,12 +369,12 @@ VALUATION ANALYSIS
               <SummaryLine label="GRM (Gross Revenue Multiple)" value={formatMultiple(calc.grm)} />
               <SummaryLine label="Price per Slip" value={formatCurrency(calc.pricePerSlip)} />
               <SummaryLine label="Price per STR Unit" value={formatCurrency(calc.pricePerSTR)} />
-              <div className="border-t border-navy-700 my-2" />
+              <div className="border-t border-hairline my-2" />
               <SummaryLine label={`Implied Value at ${formatPercent(calc.targetCapRate)} Cap`} value={formatCurrency(calc.impliedValue)} bold />
               <SummaryLine
                 label="Variance to Ask"
                 value={`${calc.variance >= 0 ? '+' : ''}${formatCurrency(calc.variance)}`}
-                color={calc.variance >= 0 ? 'text-green-400' : 'text-red-400'}
+                color={calc.variance >= 0 ? 'text-emerald-600' : 'text-red-600'}
                 bold
               />
             </div>
@@ -391,7 +391,7 @@ VALUATION ANALYSIS
 function Section({ title, children }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-gold uppercase tracking-wider">{title}</h2>
+      <h2 className="text-sm font-semibold text-accent uppercase tracking-wider">{title}</h2>
       {children}
     </div>
   );
@@ -400,13 +400,13 @@ function Section({ title, children }) {
 function Input({ label, value, onChange, placeholder }) {
   return (
     <div>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
+      {label && <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">{label}</label>}
       <input
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-navy-900 border border-navy-700 rounded px-3 py-1.5 text-sm text-slate-text focus:outline-none focus:border-gold"
+        className="w-full bg-canvas border border-hairline rounded px-3 py-1.5 text-sm text-ink-1 focus:outline-none focus:border-accent"
       />
     </div>
   );
@@ -415,13 +415,13 @@ function Input({ label, value, onChange, placeholder }) {
 function NumInput({ label, value, onChange, placeholder, small }) {
   return (
     <div className={small ? 'w-16' : ''}>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
+      {label && <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">{label}</label>}
       <input
         type="number"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`bg-navy-900 border border-navy-700 rounded px-3 py-1.5 text-sm font-mono text-slate-text focus:outline-none focus:border-gold ${small ? 'w-16' : 'w-full'}`}
+        className={`bg-canvas border border-hairline rounded px-3 py-1.5 text-sm font-mono text-ink-1 focus:outline-none focus:border-accent ${small ? 'w-16' : 'w-full'}`}
       />
     </div>
   );
@@ -430,14 +430,14 @@ function NumInput({ label, value, onChange, placeholder, small }) {
 function CurrencyInput({ label, value, onChange }) {
   return (
     <div>
-      {label && <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>}
+      {label && <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">{label}</label>}
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-secondary">$</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-3">$</span>
         <input
           type="number"
           value={value}
           onChange={e => onChange(e.target.value)}
-          className="w-full bg-navy-900 border border-navy-700 rounded pl-7 pr-3 py-1.5 text-sm font-mono text-slate-text text-right focus:outline-none focus:border-gold"
+          className="w-full bg-canvas border border-hairline rounded pl-7 pr-3 py-1.5 text-sm font-mono text-ink-1 text-right focus:outline-none focus:border-accent"
         />
       </div>
     </div>
@@ -447,7 +447,7 @@ function CurrencyInput({ label, value, onChange }) {
 function SliderInput({ label, value, onChange }) {
   return (
     <div>
-      <label className="text-[10px] text-slate-secondary uppercase tracking-wider block mb-1">{label}</label>
+      <label className="text-[10px] text-ink-3 uppercase tracking-wider block mb-1">{label}</label>
       <input
         type="range"
         min="0"
@@ -464,7 +464,7 @@ function Toggle({ value, onChange }) {
   return (
     <button
       onClick={() => onChange(!value)}
-      className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-gold' : 'bg-navy-700'}`}
+      className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-accent' : 'bg-muted'}`}
     >
       <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${value ? 'left-5' : 'left-0.5'}`} />
     </button>
@@ -473,18 +473,18 @@ function Toggle({ value, onChange }) {
 
 function SummaryCard({ label, value }) {
   return (
-    <div className="bg-navy-800 border border-gold/30 rounded-lg p-4 flex-1">
-      <p className="text-[10px] text-slate-secondary uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-xl font-mono font-bold text-gold">{value}</p>
+    <div className="bg-surface shadow-card border border-accent/30 rounded-lg p-4 flex-1">
+      <p className="text-[10px] text-ink-3 uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-xl font-mono font-bold text-accent">{value}</p>
     </div>
   );
 }
 
 function MiniCard({ label, value }) {
   return (
-    <div className="bg-navy-800 border border-navy-700 rounded-lg p-3">
-      <p className="text-[10px] text-slate-secondary uppercase tracking-wider mb-0.5">{label}</p>
-      <p className="text-sm font-mono text-slate-text">{value}</p>
+    <div className="bg-surface shadow-card border border-hairline rounded-lg p-3">
+      <p className="text-[10px] text-ink-3 uppercase tracking-wider mb-0.5">{label}</p>
+      <p className="text-sm font-mono text-ink-1">{value}</p>
     </div>
   );
 }
@@ -492,8 +492,8 @@ function MiniCard({ label, value }) {
 function SummaryLine({ label, value, bold, negative, dim, color }) {
   return (
     <div className="flex justify-between items-center">
-      <span className={`text-sm ${dim ? 'text-slate-secondary' : 'text-slate-text'} ${bold ? 'font-semibold' : ''}`}>{label}</span>
-      <span className={`text-sm font-mono ${color || (negative ? 'text-red-300' : bold ? 'text-gold font-semibold' : 'text-slate-text')}`}>
+      <span className={`text-sm ${dim ? 'text-ink-3' : 'text-ink-1'} ${bold ? 'font-semibold' : ''}`}>{label}</span>
+      <span className={`text-sm font-mono ${color || (negative ? 'text-red-500' : bold ? 'text-accent font-semibold' : 'text-ink-1')}`}>
         {value}
       </span>
     </div>

@@ -24,8 +24,8 @@ export default function OccupancyChart({ data }) {
     datasets: [{
       label: 'Occupancy %',
       data: occupancyValues,
-      backgroundColor: 'rgba(201, 168, 76, 0.6)',
-      borderColor: '#C9A84C',
+      backgroundColor: 'rgba(14, 116, 144, 0.6)',
+      borderColor: '#0E7490',
       borderWidth: 1,
       borderRadius: 4
     }]
@@ -39,7 +39,7 @@ export default function OccupancyChart({ data }) {
       title: {
         display: true,
         text: 'Monthly Occupancy Trend',
-        color: '#8A9BBE',
+        color: '#64748B',
         font: { size: 11, family: 'Inter' }
       }
     },
@@ -47,18 +47,18 @@ export default function OccupancyChart({ data }) {
       y: {
         min: 0,
         max: 100,
-        ticks: { color: '#8A9BBE', font: { size: 10 } },
-        grid: { color: '#2A3550' }
+        ticks: { color: '#64748B', font: { size: 10 } },
+        grid: { color: '#E5E7EB' }
       },
       x: {
-        ticks: { color: '#8A9BBE', font: { size: 10 } },
+        ticks: { color: '#64748B', font: { size: 10 } },
         grid: { display: false }
       }
     }
   };
 
   return (
-    <div className="bg-navy-800 border border-navy-700 rounded-lg p-4 h-48">
+    <div className="bg-surface border border-hairline rounded-lg p-4 h-48 shadow-card">
       <Bar data={chartData} options={options} />
     </div>
   );

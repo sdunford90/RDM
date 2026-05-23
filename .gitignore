@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env
 *.log
+
+# SQLite database (data is regenerated via import script)
+server/data.db
+server/data.db-journal
+server/data.db-wal
+server/data.db-shm
+server/.data.json.migrated

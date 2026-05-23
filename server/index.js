@@ -1,29 +1,41 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
+
+const { getDB } = require('./sqlite');
 
 const parcelRoutes = require('./routes/parcel');
 const marketRoutes = require('./routes/market');
 const assetRoutes = require('./routes/assets');
+const marinaRoutes = require('./routes/marinas');
+const authRoutes = require('./routes/auth');
+const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+// Initialize SQLite (runs migrations + legacy JSON import on first boot).
+getDB();
 
-// API routes
-app.use('/api/parcel', parcelRoutes);
-app.use('/api/market', marketRoutes);
-app.use('/api/assets', assetRoutes);
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 
-// Mapbox token endpoint (so frontend never has the raw env var)
+// Public endpoints — auth + mapbox token are needed before the user can sign in.
+app.use('/api/auth', authRoutes);
 app.get('/api/mapbox-token', (req, res) => {
   res.json({ token: process.env.MAPBOX_TOKEN });
 });
 
-// Serve static frontend in production
+// Auth-gated endpoints.
+app.use('/api/marinas', marinaRoutes);
+app.use('/api/parcel', requireAuth, parcelRoutes);
+app.use('/api/market', requireAuth, marketRoutes);
+app.use('/api/assets', requireAuth, assetRoutes);
+
+// Serve static frontend in production.
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));
 app.get('*', (req, res) => {
@@ -32,4 +44,5 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`RDM Deal Tool server running on port ${PORT}`);
+  console.log(`Auth mode: ${process.env.GOOGLE_CLIENT_ID ? 'google' : 'dev (set GOOGLE_CLIENT_ID + AUTH_ALLOWLIST to enable Google sign-in)'}`);
 });
