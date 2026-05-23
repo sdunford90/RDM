@@ -5,6 +5,7 @@ import { useKeyboard } from '../hooks/useKeyboard';
 import { TRIAGE_ACTIONS, STAGES_BY_ID } from '../utils/stages';
 import { formatCompactCurrency, formatRelativeTime } from '../utils/formatters';
 import ScoreBar from '../components/ScoreBar';
+import MarinaMap from '../components/MarinaMap';
 import { useIsMobile } from '../hooks/useMediaQuery';
 
 const PAGE_SIZE = 50;
@@ -122,12 +123,15 @@ export default function Triage() {
             </div>
           </div>
 
-          {current.lat && current.lon && mapboxToken && (
-            <img
-              className="w-full h-44 md:h-72 object-cover rounded-xl border border-hairline mb-4 md:mb-6"
-              alt="Location"
-              src={`https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-l-marker+0E7490(${current.lon},${current.lat})/${current.lon},${current.lat},13,0/${isMobile ? '800x400' : '1280x576'}@2x?access_token=${mapboxToken}`}
-            />
+          {current.lat && current.lon && (
+            <div className="mb-4 md:mb-6">
+              <MarinaMap
+                mapboxToken={mapboxToken}
+                lat={current.lat}
+                lon={current.lon}
+                name={current.name}
+              />
+            </div>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">

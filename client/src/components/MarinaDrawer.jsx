@@ -5,6 +5,7 @@ import StagePill from './StagePill';
 import ScoreBar from './ScoreBar';
 import EnrichmentPanel from './EnrichmentPanel';
 import FilesPanel from './FilesPanel';
+import MarinaMap from './MarinaMap';
 import { formatCompactCurrency, formatRelativeTime } from '../utils/formatters';
 import { ENRICHABLE_STAGES } from '../utils/stages';
 import { useIsMobile } from '../hooks/useMediaQuery';
@@ -120,12 +121,14 @@ export default function MarinaDrawer({ marinaId, onClose, onChanged, mapboxToken
               )}
 
               {/* Map */}
-              {marina.lat && marina.lon && mapboxToken && (
+              {marina.lat && marina.lon && (
                 <div className="px-4 md:px-6 mt-4">
-                  <img
-                    className="w-full h-40 md:h-44 object-cover rounded-lg border border-hairline"
-                    alt="Location map"
-                    src={`https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-s-marker+0E7490(${marina.lon},${marina.lat})/${marina.lon},${marina.lat},13,0/640x300@2x?access_token=${mapboxToken}`}
+                  <MarinaMap
+                    mapboxToken={mapboxToken}
+                    lat={marina.lat}
+                    lon={marina.lon}
+                    name={marina.name}
+                    parcelGeometry={parcelGeometryFor(marina)}
                   />
                 </div>
               )}
@@ -233,6 +236,12 @@ export default function MarinaDrawer({ marinaId, onClose, onChanged, mapboxToken
       </div>
     </div>
   );
+}
+
+// Pull the parcel polygon out of the regrid enrichment payload, if present.
+function parcelGeometryFor(marina) {
+  const regrid = (marina.enrichments || []).find(e => e.source === 'regrid');
+  return regrid?.data?.geometry || null;
 }
 
 function Stat({ label, value }) {
