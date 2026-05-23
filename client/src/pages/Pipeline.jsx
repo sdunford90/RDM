@@ -46,8 +46,15 @@ export default function Pipeline() {
     '/': () => document.querySelector('input[type=search]')?.focus()
   }, [filters]);
 
-  const totals = stats.totals || { total: 0, reviewed: 0, interested: 0 };
+  const rawTotals = stats.totals || {};
+  const totals = {
+    total: Number(rawTotals.total) || 0,
+    reviewed: Number(rawTotals.reviewed) || 0,
+    interested: Number(rawTotals.interested) || 0,
+  };
   const reviewedPct = totals.total ? Math.round((totals.reviewed / totals.total) * 100) : 0;
+  const dataTotal = Number(data?.total) || 0;
+  const dataResults = data?.results || [];
 
   return (
     <div className="flex flex-col h-full">
@@ -86,20 +93,20 @@ export default function Pipeline() {
         </button>
       </div>
 
-      <FiltersBar filters={filters} onChange={updateFilter} onReset={reset} total={data.total} />
+      <FiltersBar filters={filters} onChange={updateFilter} onReset={reset} total={dataTotal} />
 
-      {loading && data.results.length === 0 ? (
+      {loading && dataResults.length === 0 ? (
         <div className="flex-1 grid place-items-center text-ink-3">Loading…</div>
       ) : view === 'table' ? (
         narrow ? (
           <MarinaCardList
-            rows={data.results}
+            rows={dataResults}
             onStageChange={setStage}
             onOpen={onOpen}
           />
         ) : (
           <PipelineTable
-            rows={data.results}
+            rows={dataResults}
             sort={filters.sort}
             dir={filters.dir}
             onSort={onSort}
@@ -109,16 +116,16 @@ export default function Pipeline() {
         )
       ) : (
         <KanbanBoard
-          rows={data.results}
+          rows={dataResults}
           stats={stats}
           onStageChange={setStage}
           onOpen={onOpen}
         />
       )}
 
-      {view === 'table' && data.total > data.results.length && (
+      {view === 'table' && dataTotal > dataResults.length && (
         <div className="px-5 py-2 border-t border-hairline bg-surface text-xs text-ink-3 text-center">
-          Showing top {data.results.length} of {data.total.toLocaleString()}. Apply filters to narrow.
+          Showing top {dataResults.length} of {dataTotal.toLocaleString()}. Apply filters to narrow.
         </div>
       )}
 
