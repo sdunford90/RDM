@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marina / Hospitality Underwriting Calculator</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; }
+    input[type=range] { width: 100%; accent-color: #7c3aed; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #f1f5f9; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    const fmt$ = v => v == null || isNaN(v) ? '$0' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
+    const fmtPct = v => v == null || isNaN(v) ? '0%' : `${Number(v).toFixed(1)}%`;
+    const fmtX = v => v == null || isNaN(v) ? '0.0x' : `${Number(v).toFixed(2)}x`;
+
+    const DEFAULT = {
+      purchasePrice: 0,
+      targetCapRate: 7,
+      slipCategories: [],
+      strUnits: [],
+      otherRevenue: [],
+      expenses: {
+        mgmtFeeEnabled: true, mgmtFeePct: 8,
+        propertyTaxes: 0, insurance: 0, utilities: 0,
+        maintenanceMode: 'percent', maintenancePct: 3, maintenanceFlat: 0,
+        payroll: 0, marketing: 0, otherOpex: 0,
+      }
+    };
+
+    const lblSty = {display:'block',fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6};
+    const inpSty = {width:'100%',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:'8px 12px',fontSize:13,color:'#0f172a',outline:'none'};
+    const numSty = {...inpSty, fontFamily:'monospace'};
+
+    function Inp({lbl, value, onChange, ph}) {
+      return <div><label style={lblSty}>{lbl}</label>
+        <input type="text" value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={inpSty} /></div>;
+    }
+    function Num({lbl, value, onChange, ph, small}) {
+      return <div style={small?{width:64}:{}}><label style={lblSty}>{lbl}</label>
+        <input type="number" value={value} onChange={e=>onChange(e.target.value)} placeholder={ph} style={{...numSty, width:small?64:'100%'}} /></div>;
+    }
+    function Cur({lbl, value, onChange}) {
+      return <div><label style={lblSty}>{lbl}</label>
+        <div style={{position:'relative'}}>
+          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'#94a3b8'}}>$</span>
+          <input type="number" value={value} onChange={e=>onChange(e.target.value)} style={{...numSty, padding:'8px 12px 8px 24px', textAlign:'right'}} />
+        </div></div>;
+    }
+    function Slider({lbl, value, onChange}) {
+      return <div><label style={lblSty}>{lbl}</label>
+        <input type="range" min="0" max="100" value={value} onChange={e=>onChange(e.target.value)} /></div>;
+    }
+    function Toggle({value, onChange}) {
+      return <button onClick={()=>onChange(!value)} style={{position:'relative',width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:value?'#7c3aed':'#cbd5e1',transition:'background 0.2s',flexShrink:0}}>
+        <span style={{position:'absolute',top:3,left:value?22:3,width:16,height:16,borderRadius:'50%',background:'white',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'}} /></button>;
+    }
+    function Card({children, label, onRemove}) {
+      return <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:16,padding:16,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <span style={{fontSize:11,fontWeight:600,color:'#94a3b8'}}>{label}</span>
+          <button onClick={onRemove} style={{width:22,height:22,borderRadius:8,border:'none',background:'#fef2f2',color:'#ef4444',cursor:'pointer',fontSize:12}}>✕</button>
+        </div>
+        {children}</div>;
+    }
+    function Section({title, children, color}) {
+      const colors = {violet:'#7c3aed',pink:'#ec4899',teal:'#14b8a6',orange:'#f97316'};
+      return <div style={{paddingLeft:16,borderLeft:`2px solid ${colors[color]||colors.violet}`}}>
+        <p style={{fontSize:11,fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:12}}>{title}</p>
+        {children}</div>;
+    }
+    function AddBtn({onClick, children}) {
+      return <button onClick={onClick} style={{fontSize:12,fontWeight:600,color:'#7c3aed',background:'none',border:'none',cursor:'pointer',padding:'4px 0',alignSelf:'flex-start'}}>{children}</button>;
+    }
+    function KPI({label:lbl, value, color}) {
+      const bg = {violet:'#f5f3ff',pink:'#fdf2f8',teal:'#f0fdfa'};
+      const tc = {violet:'#7c3aed',pink:'#ec4899',teal:'#0d9488'};
+      return <div style={{background:bg[color]||bg.violet,border:`1px solid ${tc[color]||tc.violet}40`,borderRadius:16,padding:'12px 16px',flex:1}}>
+        <p style={lblSty}>{lbl}</p>
+        <p style={{fontSize:20,fontFamily:'monospace',fontWeight:800,color:tc[color]||tc.violet}}>{value}</p></div>;
+    }
+    function Mini({label:lbl, value}) {
+      return <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:16,padding:'10px 14px',boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+        <p style={lblSty}>{lbl}</p>
+        <p style={{fontSize:13,fontFamily:'monospace',fontWeight:600,color:'#0f172a'}}>{value}</p></div>;
+    }
+    function Row({label:lbl, value, bold, neg, dim, color}) {
+      return <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0'}}>
+        <span style={{fontSize:13,color:dim?'#94a3b8':bold?'#0f172a':'#475569',fontWeight:bold?600:400}}>{lbl}</span>
+        <span style={{fontSize:13,fontFamily:'monospace',fontWeight:bold?700:500,color:color||(neg?'#f87171':bold?'#7c3aed':'#0f172a')}}>{value}</span></div>;
+    }
+    function Hr() { return <div style={{borderTop:'1px solid #e2e8f0',margin:'6px 0'}} />; }
+
+    function App() {
+      const [u, setU] = useState(DEFAULT);
+      const [copied, setCopied] = useState(false);
+
+      const update = (path, value) => {
+        setU(prev => {
+          const next = JSON.parse(JSON.stringify(prev));
+          const keys = path.split('.'); let obj = next;
+          for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
+          obj[keys[keys.length - 1]] = value; return next;
+        });
+      };
+
+      const updSlip = (i,f,v) => setU(p=>{const n={...p,slipCategories:[...p.slipCategories]};n.slipCategories[i]={...n.slipCategories[i],[f]:v};return n;});
+      const addSlip = () => setU(p=>({...p,slipCategories:[...p.slipCategories,{label:'',size:0,count:0,monthlyRate:0,occupancy:85,seasonal:false,activeMonths:7}]}));
+      const rmSlip = i => setU(p=>({...p,slipCategories:p.slipCategories.filter((_,x)=>x!==i)}));
+
+      const updSTR = (i,f,v) => setU(p=>{const n={...p,strUnits:[...p.strUnits]};n.strUnits[i]={...n.strUnits[i],[f]:v};return n;});
+      const addSTR = () => setU(p=>({...p,strUnits:[...p.strUnits,{label:'',count:0,adr:0,occupancy:65,availableNights:365}]}));
+      const rmSTR = i => setU(p=>({...p,strUnits:p.strUnits.filter((_,x)=>x!==i)}));
+
+      const updOther = (i,f,v) => setU(p=>{const n={...p,otherRevenue:[...p.otherRevenue]};n.otherRevenue[i]={...n.otherRevenue[i],[f]:v};return n;});
+      const addOther = () => setU(p=>({...p,otherRevenue:[...p.otherRevenue,{label:'',amount:0}]}));
+      const rmOther = i => setU(p=>({...p,otherRevenue:p.otherRevenue.filter((_,x)=>x!==i)}));
+
+      const calc = useMemo(() => {
+        const slipRevenue = u.slipCategories.reduce((s,c)=>s+(c.count*c.monthlyRate*(c.occupancy/100)*(c.seasonal?(c.activeMonths||7):12)),0);
+        const strRevenue = u.strUnits.reduce((s,c)=>s+(c.count*c.adr*(c.occupancy/100)*c.availableNights),0);
+        const totalSTR = u.strUnits.reduce((s,c)=>s+Number(c.count),0);
+        const blendedADR = totalSTR>0?u.strUnits.reduce((s,c)=>s+c.adr*c.count,0)/totalSTR:0;
+        const blendedOcc = totalSTR>0?u.strUnits.reduce((s,c)=>s+c.occupancy*c.count,0)/totalSTR:0;
+        const otherRev = u.otherRevenue.reduce((s,r)=>s+Number(r.amount||0),0);
+        const totalEGR = slipRevenue+strRevenue+otherRev;
+        const e = u.expenses;
+        const mgmtFee = e.mgmtFeeEnabled?totalEGR*(e.mgmtFeePct/100):0;
+        const maintenance = e.maintenanceMode==='percent'?totalEGR*(e.maintenancePct/100):Number(e.maintenanceFlat);
+        const totalOpex = mgmtFee+Number(e.propertyTaxes)+Number(e.insurance)+Number(e.utilities)+maintenance+Number(e.payroll)+Number(e.marketing)+Number(e.otherOpex);
+        const expenseRatio = totalEGR>0?(totalOpex/totalEGR)*100:0;
+        const noi = totalEGR-totalOpex;
+        const purchasePrice = Number(u.purchasePrice)||0;
+        const capRate = purchasePrice>0?(noi/purchasePrice)*100:0;
+        const grm = totalEGR>0?purchasePrice/totalEGR:0;
+        const totalSlips = u.slipCategories.reduce((s,c)=>s+Number(c.count),0);
+        const pricePerSlip = totalSlips>0?purchasePrice/totalSlips:0;
+        const pricePerSTR = totalSTR>0?purchasePrice/totalSTR:0;
+        const targetCapRate = Number(u.targetCapRate)||7;
+        const impliedValue = targetCapRate>0?noi/(targetCapRate/100):0;
+        const variance = impliedValue-purchasePrice;
+        return {slipRevenue,strRevenue,otherRev,totalEGR,mgmtFee,maintenance,totalOpex,expenseRatio,noi,capRate,grm,pricePerSlip,pricePerSTR,impliedValue,variance,blendedADR,blendedOcc,purchasePrice,targetCapRate};
+      }, [u]);
+
+      const copySummary = () => {
+        const e = u.expenses;
+        const txt = `UNDERWRITING SUMMARY\n${'='.repeat(40)}\n\nEFFECTIVE GROSS REVENUE\n  Marina Slips:   ${fmt$(calc.slipRevenue)}\n  STR/Lodging:    ${fmt$(calc.strRevenue)}\n  Other:          ${fmt$(calc.otherRev)}\n  Total EGR:      ${fmt$(calc.totalEGR)}\n\nOPERATING EXPENSES\n  Mgmt Fee (${e.mgmtFeePct}%): (${fmt$(calc.mgmtFee)})\n  Taxes:          (${fmt$(e.propertyTaxes)})\n  Insurance:      (${fmt$(e.insurance)})\n  Utilities:      (${fmt$(e.utilities)})\n  Maintenance:    (${fmt$(calc.maintenance)})\n  Payroll:        (${fmt$(e.payroll)})\n  Marketing:      (${fmt$(e.marketing)})\n  Other:          (${fmt$(e.otherOpex)})\n  Total OpEx:     (${fmt$(calc.totalOpex)})\n  Expense Ratio:  ${fmtPct(calc.expenseRatio)}\n\nNOI: ${fmt$(calc.noi)}\n\nVALUATION\n  Purchase Price: ${fmt$(calc.purchasePrice)}\n  Cap Rate:       ${fmtPct(calc.capRate)}\n  GRM:            ${fmtX(calc.grm)}\n  Per Slip:       ${fmt$(calc.pricePerSlip)}\n  Per STR Unit:   ${fmt$(calc.pricePerSTR)}\n  Target Cap:     ${fmtPct(calc.targetCapRate)}\n  Implied Value:  ${fmt$(calc.impliedValue)}\n  Variance:       ${calc.variance>=0?'+':''}${fmt$(calc.variance)}`;
+        navigator.clipboard.writeText(txt).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+      };
+
+      return (
+        <div style={{minHeight:'100vh',background:'#f8fafc'}}>
+          <div style={{background:'linear-gradient(135deg,#7c3aed,#a855f7)',padding:'20px 24px',color:'white'}}>
+            <h1 style={{fontSize:20,fontWeight:800,letterSpacing:'-0.02em'}}>Marina / Hospitality Underwriting</h1>
+            <p style={{fontSize:12,opacity:0.8,marginTop:4}}>Slip revenue · STR/lodging · Expense model · Cap rate valuation</p>
+          </div>
+
+          <div style={{maxWidth:900,margin:'0 auto',padding:'24px 20px',display:'flex',flexDirection:'column',gap:28}}>
+
+            <Section title="Marina Slip Revenue" color="violet">
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {u.slipCategories.map((slip,i)=>(
+                  <Card key={i} label={`Slip Category ${i+1}`} onRemove={()=>rmSlip(i)}>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:12}}>
+                      <Inp lbl="Type" value={slip.label} onChange={v=>updSlip(i,'label',v)} ph="Wet Slip 30ft" />
+                      <Num lbl="Size (ft)" value={slip.size} onChange={v=>updSlip(i,'size',Number(v))} />
+                      <Num lbl="Count" value={slip.count} onChange={v=>updSlip(i,'count',Number(v))} />
+                      <Cur lbl="Monthly Rate" value={slip.monthlyRate} onChange={v=>updSlip(i,'monthlyRate',Number(v))} />
+                      <Slider lbl={`Occ ${slip.occupancy}%`} value={slip.occupancy} onChange={v=>updSlip(i,'occupancy',Number(v))} />
+                      <div>
+                        <label style={lblSty}>Seasonal</label>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <Toggle value={slip.seasonal} onChange={v=>updSlip(i,'seasonal',v)} />
+                          {slip.seasonal && <Num lbl="" value={slip.activeMonths} onChange={v=>updSlip(i,'activeMonths',Number(v))} ph="Mo" small />}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                <AddBtn onClick={addSlip}>+ Add Slip Category</AddBtn>
+                <div style={{display:'flex',gap:12}}>
+                  <KPI label="Total Slip Revenue" value={fmt$(calc.slipRevenue)} color="violet" />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Short-Term Rental / Lodging" color="pink">
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {u.strUnits.map((unit,i)=>(
+                  <Card key={i} label={`Unit Type ${i+1}`} onRemove={()=>rmSTR(i)}>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:12}}>
+                      <Inp lbl="Type" value={unit.label} onChange={v=>updSTR(i,'label',v)} ph="Lakefront Cabin" />
+                      <Num lbl="Count" value={unit.count} onChange={v=>updSTR(i,'count',Number(v))} />
+                      <Cur lbl="ADR ($/night)" value={unit.adr} onChange={v=>updSTR(i,'adr',Number(v))} />
+                      <Slider lbl={`Occ ${unit.occupancy}%`} value={unit.occupancy} onChange={v=>updSTR(i,'occupancy',Number(v))} />
+                      <Num lbl="Nights/yr" value={unit.availableNights} onChange={v=>updSTR(i,'availableNights',Number(v))} />
+                    </div>
+                  </Card>
+                ))}
+                <AddBtn onClick={addSTR}>+ Add Unit Type</AddBtn>
+                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                  <KPI label="Total STR Revenue" value={fmt$(calc.strRevenue)} color="pink" />
+                  <Mini label="Blended ADR" value={`$${calc.blendedADR.toFixed(0)}/nt`} />
+                  <Mini label="Blended Occ" value={fmtPct(calc.blendedOcc)} />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Other Revenue" color="teal">
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {u.otherRevenue.map((rev,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'flex-end',gap:12}}>
+                    <div style={{flex:1}}><Inp lbl="Item" value={rev.label} onChange={v=>updOther(i,'label',v)} ph="Fuel dock" /></div>
+                    <div style={{flex:1}}><Cur lbl="Annual" value={rev.amount} onChange={v=>updOther(i,'amount',Number(v))} /></div>
+                    <button onClick={()=>rmOther(i)} style={{paddingBottom:10,background:'none',border:'none',color:'#94a3b8',cursor:'pointer',fontSize:16}}>✕</button>
+                  </div>
+                ))}
+                <AddBtn onClick={addOther}>+ Add Revenue Line</AddBtn>
+              </div>
+            </Section>
+
+            <Section title="Operating Expenses" color="orange">
+              <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:16,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,marginBottom:16}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <Toggle value={u.expenses.mgmtFeeEnabled} onChange={v=>update('expenses.mgmtFeeEnabled',v)} />
+                    <span style={{fontSize:14,fontWeight:500}}>Management Fee</span>
+                  </div>
+                  {u.expenses.mgmtFeeEnabled && (
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <Num lbl="" value={u.expenses.mgmtFeePct} onChange={v=>update('expenses.mgmtFeePct',Number(v))} small />
+                      <span style={{fontSize:12,color:'#94a3b8'}}>% of EGR</span>
+                      <span style={{fontSize:14,fontFamily:'monospace',fontWeight:700,color:'#7c3aed',marginLeft:8}}>{fmt$(calc.mgmtFee)}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12}}>
+                  <Cur lbl="Property Taxes" value={u.expenses.propertyTaxes} onChange={v=>update('expenses.propertyTaxes',Number(v))} />
+                  <Cur lbl="Insurance" value={u.expenses.insurance} onChange={v=>update('expenses.insurance',Number(v))} />
+                  <Cur lbl="Utilities" value={u.expenses.utilities} onChange={v=>update('expenses.utilities',Number(v))} />
+                  <div>
+                    <label style={lblSty}>Maintenance</label>
+                    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <select value={u.expenses.maintenanceMode} onChange={e=>update('expenses.maintenanceMode',e.target.value)}
+                        style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:'8px 10px',fontSize:12,color:'#475569',outline:'none'}}>
+                        <option value="percent">%</option><option value="flat">$</option>
+                      </select>
+                      {u.expenses.maintenanceMode==='percent'
+                        ? <Num lbl="" value={u.expenses.maintenancePct} onChange={v=>update('expenses.maintenancePct',Number(v))} small />
+                        : <Cur lbl="" value={u.expenses.maintenanceFlat} onChange={v=>update('expenses.maintenanceFlat',Number(v))} />}
+                    </div>
+                  </div>
+                  <Cur lbl="Payroll" value={u.expenses.payroll} onChange={v=>update('expenses.payroll',Number(v))} />
+                  <Cur lbl="Marketing" value={u.expenses.marketing} onChange={v=>update('expenses.marketing',Number(v))} />
+                  <Cur lbl="Other OpEx" value={u.expenses.otherOpex} onChange={v=>update('expenses.otherOpex',Number(v))} />
+                </div>
+              </div>
+            </Section>
+
+            <div style={{background:'white',border:'2px solid #ede9fe',borderRadius:24,padding:28,boxShadow:'0 4px 24px rgba(124,58,237,0.08)',position:'relative',overflow:'hidden'}}>
+              <div style={{position:'absolute',top:0,left:0,right:0,height:4,background:'linear-gradient(90deg,#7c3aed,#a855f7,#ec4899)'}} />
+
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:8}}>
+                <h2 style={{fontSize:18,fontWeight:800,background:'linear-gradient(135deg,#7c3aed,#a855f7)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>Underwriting Summary</h2>
+                <button onClick={copySummary}
+                  style={{padding:'6px 16px',background:copied?'#7c3aed':'#f5f3ff',border:'1px solid #ede9fe',color:copied?'white':'#7c3aed',borderRadius:12,fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                  {copied?'✓ Copied!':'Copy Summary'}
+                </button>
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <p style={lblSty}>Effective Gross Revenue</p>
+                <Row label="Marina Slips" value={fmt$(calc.slipRevenue)} />
+                <Row label="STR / Lodging" value={fmt$(calc.strRevenue)} />
+                <Row label="Other" value={fmt$(calc.otherRev)} />
+                <Hr /><Row label="Total EGR" value={fmt$(calc.totalEGR)} bold />
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <p style={lblSty}>Operating Expenses</p>
+                {u.expenses.mgmtFeeEnabled && <Row label={`Mgmt Fee (${u.expenses.mgmtFeePct}%)`} value={`(${fmt$(calc.mgmtFee)})`} neg />}
+                <Row label="Taxes" value={`(${fmt$(u.expenses.propertyTaxes)})`} neg />
+                <Row label="Insurance" value={`(${fmt$(u.expenses.insurance)})`} neg />
+                <Row label="Utilities" value={`(${fmt$(u.expenses.utilities)})`} neg />
+                <Row label="Maintenance" value={`(${fmt$(calc.maintenance)})`} neg />
+                <Row label="Payroll" value={`(${fmt$(u.expenses.payroll)})`} neg />
+                <Row label="Marketing" value={`(${fmt$(u.expenses.marketing)})`} neg />
+                <Row label="Other" value={`(${fmt$(u.expenses.otherOpex)})`} neg />
+                <Hr /><Row label="Total OpEx" value={`(${fmt$(calc.totalOpex)})`} bold neg />
+                <Row label="Expense Ratio" value={fmtPct(calc.expenseRatio)} dim />
+              </div>
+
+              <div style={{background:calc.noi>=0?'#ecfdf5':'#fef2f2',border:`1px solid ${calc.noi>=0?'#a7f3d0':'#fecaca'}`,borderRadius:16,padding:24,textAlign:'center',marginBottom:20}}>
+                <p style={lblSty}>Net Operating Income</p>
+                <p style={{fontSize:40,fontFamily:'monospace',fontWeight:900,color:calc.noi>=0?'#059669':'#dc2626',letterSpacing:'-0.02em'}}>{fmt$(calc.noi)}</p>
+              </div>
+
+              <div>
+                <p style={lblSty}>Valuation</p>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                  <Cur lbl="Purchase Price" value={u.purchasePrice} onChange={v=>update('purchasePrice',Number(v))} />
+                  <Num lbl="Target Cap (%)" value={u.targetCapRate} onChange={v=>update('targetCapRate',Number(v))} />
+                </div>
+                <Row label="Cap Rate" value={fmtPct(calc.capRate)} />
+                <Row label="GRM" value={fmtX(calc.grm)} />
+                <Row label="Per Slip" value={fmt$(calc.pricePerSlip)} />
+                <Row label="Per STR Unit" value={fmt$(calc.pricePerSTR)} />
+                <Hr />
+                <Row label={`Value at ${fmtPct(calc.targetCapRate)} Cap`} value={fmt$(calc.impliedValue)} bold />
+                <Row label="Variance to Ask" value={`${calc.variance>=0?'+':''}${fmt$(calc.variance)}`} bold color={calc.variance>=0?'#059669':'#dc2626'} />
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

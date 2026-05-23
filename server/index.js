@@ -39,6 +39,11 @@ app.use('/api/assets', requireAuth, assetRoutes);
 app.use('/api/dashboard', requireAuth, dashboardRoutes);
 app.use('/api', requireAuth, fileRoutes);
 
+// Standalone underwriting calculator — no auth, for export to other apps.
+app.get('/underwriting-tool', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'exports', 'underwriting-calculator.html'));
+});
+
 // Serve static frontend in production.
 const distPath = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(distPath));
