@@ -8,6 +8,7 @@ const EMPTY_FILTERS = {
   region: '',
   operator_type: '',
   min_slips: '',
+  min_depth: '',
   min_score: 0,
   sort: 'fit_score',
   dir: 'desc'

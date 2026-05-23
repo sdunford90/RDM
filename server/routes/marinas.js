@@ -13,7 +13,8 @@ const { runEnrichment } = require('../enrichment');
 const router = express.Router();
 router.use(requireAuth);
 
-const STAGES = ['new', 'reviewing', 'interested', 'researching', 'loi', 'under_contract', 'closed', 'passed'];
+const STAGES = ['new', 'watchlist', 'qualified', 'researching', 'outreach', 'in_dialogue', 'loi_submitted', 'under_loi', 'diligence', 'closed', 'passed', 'dead'];
+const ENRICHABLE = new Set(['qualified', 'researching', 'outreach', 'in_dialogue', 'loi_submitted', 'under_loi', 'diligence', 'closed']);
 const SORTABLE = new Set(['fit_score', 'name', 'state', 'slips', 'last_activity_at', 'stage', 'stage_changed_at']);
 
 function parseJSON(v) {
@@ -64,7 +65,7 @@ router.get('/stats', (req, res) => {
   const totals = db.prepare(`
     SELECT COUNT(*) AS total,
            SUM(CASE WHEN stage <> 'new' THEN 1 ELSE 0 END) AS reviewed,
-           SUM(CASE WHEN stage IN ('interested', 'researching', 'loi', 'under_contract', 'closed') THEN 1 ELSE 0 END) AS interested
+           SUM(CASE WHEN stage IN ('qualified','researching','outreach','in_dialogue','loi_submitted','under_loi','diligence','closed') THEN 1 ELSE 0 END) AS interested
     FROM marinas
   `).get();
   res.json({ stages, totals });
@@ -75,7 +76,7 @@ router.get('/', (req, res) => {
   const db = getDB();
   const {
     stage, state, region, operator_type, q,
-    min_slips, min_score,
+    min_slips, min_score, min_depth,
     sort = 'fit_score', dir = 'desc',
     limit = '100', offset = '0',
     ids // comma-separated, used by Compare / triage navigation
@@ -97,6 +98,7 @@ router.get('/', (req, res) => {
   if (operator_type) { where.push('m.operator_type = @operator_type'); params.operator_type = operator_type; }
   if (min_slips)     { where.push('COALESCE(m.slips, 0) >= @min_slips'); params.min_slips = Number(min_slips); }
   if (min_score)     { where.push('m.fit_score >= @min_score');        params.min_score = Number(min_score); }
+  if (min_depth)     { where.push('COALESCE(m.approach_depth, m.dock_depth, 0) >= @min_depth'); params.min_depth = Number(min_depth); }
   if (q) {
     where.push('(m.name LIKE @q OR m.city LIKE @q OR m.address LIKE @q OR m.harbor LIKE @q)');
     params.q = `%${q}%`;
@@ -226,8 +228,8 @@ router.post('/:id/enrich', async (req, res) => {
   const marina = db.prepare('SELECT * FROM marinas WHERE id = ?').get(req.params.id);
   if (!marina) return res.status(404).json({ error: 'Marina not found' });
 
-  if (marina.stage === 'new' || marina.stage === 'passed') {
-    return res.status(400).json({ error: `Mark this marina Interested before enriching (current stage: ${marina.stage})` });
+  if (!ENRICHABLE.has(marina.stage)) {
+    return res.status(400).json({ error: `Move this marina to Qualified or further before enriching (current stage: ${marina.stage})` });
   }
 
   db.prepare(`UPDATE marinas SET enrichment_status = 'running', updated_at = datetime('now') WHERE id = ?`).run(req.params.id);

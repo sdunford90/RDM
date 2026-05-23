@@ -61,8 +61,8 @@ export default function Triage() {
   }, [current]);
 
   useKeyboard({
-    i: () => act('interested'),
-    m: () => act('reviewing'),
+    q: () => act('qualified'),
+    w: () => act('watchlist'),
     p: () => act('passed'),
     ArrowRight: () => setIdx(i => Math.min(i + 1, queue.length - 1)),
     ArrowLeft:  () => setIdx(i => Math.max(i - 1, 0)),

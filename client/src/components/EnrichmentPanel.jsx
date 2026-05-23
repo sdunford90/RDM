@@ -14,6 +14,7 @@ export default function EnrichmentPanel({ marina, onUpdated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const enrichable = ENRICHABLE_STAGES.has(marina.stage);
+  const enrichableText = 'Move this marina to Qualified or further to unlock enrichment.';
   const totalCost = Object.values(SOURCE_META).reduce((a, s) => a + s.est_cents, 0);
 
   async function run({ force = false } = {}) {
@@ -40,7 +41,7 @@ export default function EnrichmentPanel({ marina, onUpdated }) {
           <p className="text-xs text-ink-3 mt-0.5">
             {enrichable
               ? `On-click only. Estimated ~$${(totalCost / 100).toFixed(2)} per marina.`
-              : 'Mark this marina Interested or further to unlock enrichment.'}
+              : enrichableText}
           </p>
         </div>
         <div className="flex items-center gap-2">

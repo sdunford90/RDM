@@ -28,6 +28,7 @@ export default function FiltersBar({ filters, onChange, onReset, total }) {
       />
 
       <NumInput value={filters.min_slips} onChange={v => onChange({ min_slips: v })} placeholder="Min slips" width={96} />
+      <NumInput value={filters.min_depth} onChange={v => onChange({ min_depth: v })} placeholder="Min depth (ft)" width={120} />
 
       <div className="flex items-center gap-2 ml-1">
         <label className="text-xs uppercase tracking-wider text-ink-3">Min score</label>
